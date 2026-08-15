@@ -29,6 +29,8 @@ const uploadRoutes =
   require("./src/routes/uploadRoutes");
 const producerDashboardRoutes =
   require("./src/routes/producerDashboardRoutes");
+  const deliveryAssignmentRoutes =
+  require("./src/routes/deliveryAssignmentRoutes");
 const errorMiddleware = require("./src/middleware/errorMiddleware");
 
 const app = express();
@@ -161,6 +163,11 @@ app.use(
 app.use(
   "/api/delivery",
   deliveryPersonRoutes
+);
+
+app.use(
+  "/api/delivery-assignments",
+  deliveryAssignmentRoutes
 );
 // Error handler
 app.use(errorMiddleware);
