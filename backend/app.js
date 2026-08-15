@@ -34,6 +34,8 @@ const producerDashboardRoutes =
 const errorMiddleware = require("./src/middleware/errorMiddleware");
 const deliveryRouteRoutes =
   require("./src/routes/deliveryRouteRoutes");
+  const deliveryQrRoutes =
+  require("./src/routes/deliveryQrRoutes");
 
 const app = express();
 
@@ -177,6 +179,10 @@ app.use(
   deliveryRouteRoutes
 );
 
+app.use(
+  "/api/delivery-qr",
+  deliveryQrRoutes
+);
 // Error handler
 app.use(errorMiddleware);
 
