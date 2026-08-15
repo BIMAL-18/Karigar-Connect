@@ -9,6 +9,7 @@ const userRoutes = require("./src/routes/userRoutes");
 const producerRoutes = require("./src/routes/producerRoutes");
 const categoryRoutes = require("./src/routes/categoryRoutes");
 const productRoutes = require("./src/routes/productRoutes");
+const adminRoutes = require("./src/routes/adminRoutes");
 const errorMiddleware = require("./src/middleware/errorMiddleware");
 
 const app = express();
@@ -65,6 +66,10 @@ app.use(
 app.use(
   "/api/products",
   productRoutes
+);
+app.use(
+  "/api/admin",
+  adminRoutes
 );
 
 // Error handler
