@@ -8,6 +8,7 @@ const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const producerRoutes = require("./src/routes/producerRoutes");
 const categoryRoutes = require("./src/routes/categoryRoutes");
+const productRoutes = require("./src/routes/productRoutes");
 const errorMiddleware = require("./src/middleware/errorMiddleware");
 
 const app = express();
@@ -60,6 +61,10 @@ app.use(
 app.use(
   "/api/categories",
   categoryRoutes
+);
+app.use(
+  "/api/products",
+  productRoutes
 );
 
 // Error handler
