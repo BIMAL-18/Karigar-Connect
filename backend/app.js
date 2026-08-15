@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
+const path = require("path");
 
 const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
@@ -18,6 +19,8 @@ const reviewRoutes = require("./src/routes/reviewRoutes");
 const notificationRoutes = require("./src/routes/notificationRoutes");
 const wishlistRoutes = require("./src/routes/wishlistRoutes");
 const adminDashboardRoutes = require("./src/routes/adminDashboardRoutes");
+const uploadRoutes =
+  require("./src/routes/uploadRoutes");
 const producerDashboardRoutes =
   require("./src/routes/producerDashboardRoutes");
 const errorMiddleware = require("./src/middleware/errorMiddleware");
@@ -116,6 +119,19 @@ app.use(
 app.use(
   "/api/producer/dashboard",
   producerDashboardRoutes
+);
+app.use(
+  "/api/uploads",
+  uploadRoutes
+);
+app.use(
+  "/uploads",
+  express.static(
+    path.join(
+      __dirname,
+      "src/uploads"
+    )
+  )
 );
 // Error handler
 app.use(errorMiddleware);
