@@ -20,6 +20,8 @@ const adminOrderRoutes = require("./src/routes/adminOrderRoutes");
 const reviewRoutes = require("./src/routes/reviewRoutes");
 const notificationRoutes = require("./src/routes/notificationRoutes");
 const wishlistRoutes = require("./src/routes/wishlistRoutes");
+const deliveryPersonRoutes =
+  require("./src/routes/deliveryPersonRoutes");
 const adminDashboardRoutes = require("./src/routes/adminDashboardRoutes");
 const apiLimiter =
   require("./src/middleware/rateLimitMiddleware");
@@ -155,6 +157,10 @@ app.use(
 app.use(
   "/api",
   apiLimiter
+);
+app.use(
+  "/api/delivery",
+  deliveryPersonRoutes
 );
 // Error handler
 app.use(errorMiddleware);
