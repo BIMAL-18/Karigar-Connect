@@ -5,7 +5,11 @@ const {
   getMyOrders,
   getOrderById,
   cancelOrder,
+  getProducerOrders,
+  updateProducerOrderStatus,
 } = require("../controllers/orderController");
+
+const authorize = require("../middleware/authorize");
 
 const protect = require("../middleware/authMiddleware");
 
@@ -45,6 +49,21 @@ router.put(
   "/:id/cancel",
   protect,
   cancelOrder
+);
+// Producer orders
+router.get(
+  "/producer",
+  protect,
+  authorize("PRODUCER"),
+  getProducerOrders
+);
+
+// Update producer order status
+router.put(
+  "/producer/:id/status",
+  protect,
+  authorize("PRODUCER"),
+  updateProducerOrderStatus
 );
 
 module.exports = router;

@@ -13,6 +13,10 @@ const adminRoutes = require("./src/routes/adminRoutes");
 const cartRoutes = require("./src/routes/cartRoutes");
 const orderRoutes = require("./src/routes/orderRoutes");
 const paymentRoutes = require("./src/routes/paymentRoutes");
+const adminOrderRoutes = require("./src/routes/adminOrderRoutes");
+const reviewRoutes = require("./src/routes/reviewRoutes");
+const notificationRoutes = require("./src/routes/notificationRoutes");
+const wishlistRoutes = require("./src/routes/wishlistRoutes");
 const errorMiddleware = require("./src/middleware/errorMiddleware");
 
 const app = express();
@@ -75,6 +79,10 @@ app.use(
   adminRoutes
 );
 app.use(
+  "/api/admin/orders",
+  adminOrderRoutes
+);
+app.use(
   "/api/cart",
   cartRoutes
 );
@@ -85,6 +93,18 @@ app.use(
 app.use(
   "/api/payments",
   paymentRoutes
+);
+app.use(
+  "/api/reviews",
+  reviewRoutes
+);
+app.use(
+  "/api/notifications",
+  notificationRoutes
+);
+app.use(
+  "/api/wishlist",
+  wishlistRoutes
 );
 // Error handler
 app.use(errorMiddleware);

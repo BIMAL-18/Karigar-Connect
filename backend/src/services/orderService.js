@@ -1,6 +1,10 @@
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
 const Order = require("../models/Order");
+const Producer = require("../models/Producer");
+const {
+  createNotification,
+} = require("./notificationService");
 
 const generateOrderNumber = () => {
   const timestamp = Date.now();
@@ -24,6 +28,7 @@ const calculateSubtotal = (items) => {
   );
 };
 
+// Create order
 const createOrder = async (
   userId,
   orderData
@@ -83,8 +88,7 @@ const createOrder = async (
   const subtotal =
     calculateSubtotal(orderItems);
 
-  // You can change this later
-  // according to your delivery system.
+  // Calculate delivery charge
   const deliveryCharge =
     subtotal >= 2000 ? 0 : 100;
 
@@ -111,14 +115,20 @@ const createOrder = async (
     paymentMethod:
       orderData.paymentMethod,
 
-    paymentStatus:
-      orderData.paymentMethod === "COD"
-        ? "PENDING"
-        : "PENDING",
+    paymentStatus: "PENDING",
 
     orderStatus: "PENDING",
 
     notes: orderData.notes || "",
+  });
+
+  // Create customer notification
+  await createNotification({
+    recipient: userId,
+    title: "Order Placed",
+    message: `Your order ${order.orderNumber} has been placed successfully.`,
+    type: "ORDER",
+    order: order._id,
   });
 
   // Reduce stock
@@ -156,6 +166,7 @@ const createOrder = async (
     );
 };
 
+// Get my orders
 const getMyOrders = async (
   userId
 ) => {
@@ -175,6 +186,7 @@ const getMyOrders = async (
     });
 };
 
+// Get order by ID
 const getOrderById = async (
   userId,
   orderId
@@ -206,6 +218,7 @@ const getOrderById = async (
   return order;
 };
 
+// Cancel order
 const cancelOrder = async (
   userId,
   orderId,
@@ -257,9 +270,146 @@ const cancelOrder = async (
   return order;
 };
 
+// Get producer orders
+const getProducerOrders = async (
+  userId
+) => {
+  const producer =
+    await Producer.findOne({
+      user: userId,
+    });
+
+  if (!producer) {
+    throw new Error(
+      "Producer profile not found."
+    );
+  }
+
+  const orders =
+    await Order.find({
+      "items.producer": producer._id,
+    })
+      .populate(
+        "customer",
+        "name email phone"
+      )
+      .populate(
+        "items.product",
+        "name images"
+      )
+      .populate(
+        "items.producer",
+        "businessName"
+      )
+      .sort({
+        createdAt: -1,
+      });
+
+  return orders;
+};
+
+// Update producer order status
+const updateProducerOrderStatus =
+  async (
+    userId,
+    orderId,
+    status
+  ) => {
+    const producer =
+      await Producer.findOne({
+        user: userId,
+      });
+
+    if (!producer) {
+      throw new Error(
+        "Producer profile not found."
+      );
+    }
+
+    const order =
+      await Order.findOne({
+        _id: orderId,
+        "items.producer":
+          producer._id,
+      });
+
+    if (!order) {
+      throw new Error(
+        "Order not found."
+      );
+    }
+
+    const allowedStatuses = [
+      "PROCESSING",
+      "SHIPPED",
+      "DELIVERED",
+    ];
+
+    if (
+      !allowedStatuses.includes(
+        status
+      )
+    ) {
+      throw new Error(
+        "Invalid order status."
+      );
+    }
+
+    if (
+      order.orderStatus ===
+      "CANCELLED"
+    ) {
+      throw new Error(
+        "Cancelled order cannot be updated."
+      );
+    }
+
+    if (
+      order.paymentStatus !==
+        "PAID" &&
+      order.paymentMethod !==
+        "COD"
+    ) {
+      throw new Error(
+        "Payment must be completed before processing this order."
+      );
+    }
+
+    order.orderStatus = status;
+
+    await order.save();
+
+    // Notify customer
+    await createNotification({
+      recipient: order.customer,
+      title: "Order Status Updated",
+      message: `Your order ${order.orderNumber} is now ${status}.`,
+      type: "ORDER",
+      order: order._id,
+    });
+
+    return await Order.findById(
+      order._id
+    )
+      .populate(
+        "customer",
+        "name email phone"
+      )
+      .populate(
+        "items.product",
+        "name images"
+      )
+      .populate(
+        "items.producer",
+        "businessName"
+      );
+  };
+
 module.exports = {
   createOrder,
   getMyOrders,
   getOrderById,
   cancelOrder,
+  getProducerOrders,
+  updateProducerOrderStatus,
 };

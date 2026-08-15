@@ -1,5 +1,6 @@
 const orderService = require("../services/orderService");
 
+// Create order
 const createOrder = async (
   req,
   res,
@@ -23,6 +24,7 @@ const createOrder = async (
   }
 };
 
+// Get my orders
 const getMyOrders = async (
   req,
   res,
@@ -44,6 +46,7 @@ const getMyOrders = async (
   }
 };
 
+// Get order by ID
 const getOrderById = async (
   req,
   res,
@@ -65,6 +68,7 @@ const getOrderById = async (
   }
 };
 
+// Cancel order
 const cancelOrder = async (
   req,
   res,
@@ -89,9 +93,70 @@ const cancelOrder = async (
   }
 };
 
+// Get producer orders
+const getProducerOrders = async (
+  req,
+  res,
+  next
+) => {
+  try {
+    const orders =
+      await orderService.getProducerOrders(
+        req.user._id
+      );
+
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      orders,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Update producer order status
+const updateProducerOrderStatus =
+  async (
+    req,
+    res,
+    next
+  ) => {
+    try {
+      const { status } = req.body;
+
+      if (!status) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Order status is required.",
+        });
+      }
+
+      const order =
+        await orderService.updateProducerOrderStatus(
+          req.user._id,
+          req.params.id,
+          status
+        );
+
+      res.status(200).json({
+        success: true,
+        message:
+          "Order status updated successfully.",
+        order,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+// Export controllers
 module.exports = {
   createOrder,
   getMyOrders,
   getOrderById,
   cancelOrder,
+  getProducerOrders,
+  updateProducerOrderStatus,
 };
