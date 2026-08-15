@@ -8,6 +8,7 @@ const {
   updateProduct,
   deleteProduct,
   updateProductLocation,
+    getNearbyProducts,
 } = require("../controllers/productController");
 
 const protect = require("../middleware/authMiddleware");
@@ -21,11 +22,13 @@ const validate = require("../middleware/validationMiddleware");
 
 const router = express.Router();
 
+
 // Public - all approved products
 router.get(
   "/",
   getProducts
 );
+
 
 // Producer - own products
 router.get(
@@ -34,12 +37,17 @@ router.get(
   authorize("PRODUCER"),
   getMyProducts
 );
+router.get(
+  "/nearby",
+  getNearbyProducts
+);
 
 // Public - single product
 router.get(
   "/:id",
   getProductById
 );
+
 
 // Producer - create product
 router.post(
@@ -51,6 +59,7 @@ router.post(
   createProduct
 );
 
+
 // Producer - update product
 router.put(
   "/:id",
@@ -58,6 +67,7 @@ router.put(
   authorize("PRODUCER"),
   updateProduct
 );
+
 
 // Producer - update product location
 router.put(
@@ -67,6 +77,7 @@ router.put(
   updateProductLocation
 );
 
+
 // Producer - deactivate product
 router.delete(
   "/:id",
@@ -74,5 +85,6 @@ router.delete(
   authorize("PRODUCER"),
   deleteProduct
 );
+
 
 module.exports = router;

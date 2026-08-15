@@ -169,6 +169,47 @@ const updateProductLocation = async (
     next(error);
   }
 };
+const getNearbyProducts = async (
+  req,
+  res,
+  next
+) => {
+  try {
+
+    const {
+      longitude,
+      latitude,
+      distance = 10,
+    } = req.query;
+
+    if (
+      !longitude ||
+      !latitude
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Longitude and latitude are required.",
+      });
+    }
+
+    const products =
+      await productService.getNearbyProducts(
+        longitude,
+        latitude,
+        distance
+      );
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      products,
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   createProduct,
@@ -178,4 +219,5 @@ module.exports = {
   updateProduct,
   deleteProduct,
   updateProductLocation,
+  getNearbyProducts,
 };

@@ -17,6 +17,9 @@ const adminOrderRoutes = require("./src/routes/adminOrderRoutes");
 const reviewRoutes = require("./src/routes/reviewRoutes");
 const notificationRoutes = require("./src/routes/notificationRoutes");
 const wishlistRoutes = require("./src/routes/wishlistRoutes");
+const adminDashboardRoutes = require("./src/routes/adminDashboardRoutes");
+const producerDashboardRoutes =
+  require("./src/routes/producerDashboardRoutes");
 const errorMiddleware = require("./src/middleware/errorMiddleware");
 
 const app = express();
@@ -105,6 +108,14 @@ app.use(
 app.use(
   "/api/wishlist",
   wishlistRoutes
+);
+app.use(
+  "/api/admin/dashboard",
+  adminDashboardRoutes
+);
+app.use(
+  "/api/producer/dashboard",
+  producerDashboardRoutes
 );
 // Error handler
 app.use(errorMiddleware);

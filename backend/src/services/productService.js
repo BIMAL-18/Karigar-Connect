@@ -56,7 +56,9 @@ const createProduct = async (
     );
 };
 
-const getProducts = async (filters = {}) => {
+const getProducts = async (
+  filters = {}
+) => {
   const {
     search,
     category,
@@ -64,6 +66,7 @@ const getProducts = async (filters = {}) => {
     district,
     minPrice,
     maxPrice,
+    sort = "newest",
     page = 1,
     limit = 12,
   } = filters;
@@ -73,24 +76,35 @@ const getProducts = async (filters = {}) => {
     verificationStatus: "APPROVED",
   };
 
+  // Search
   if (search) {
     query.$text = {
       $search: search,
     };
   }
 
+  // Category
   if (category) {
     query.category = category;
   }
 
+  // Province
   if (province) {
-    query.province = province;
+    query.province = {
+      $regex: province,
+      $options: "i",
+    };
   }
 
+  // District
   if (district) {
-    query.district = district;
+    query.district = {
+      $regex: district,
+      $options: "i",
+    };
   }
 
+  // Price range
   if (
     minPrice !== undefined ||
     maxPrice !== undefined
@@ -98,17 +112,73 @@ const getProducts = async (filters = {}) => {
     query.price = {};
 
     if (minPrice !== undefined) {
-      query.price.$gte = Number(minPrice);
+      query.price.$gte =
+        Number(minPrice);
     }
 
     if (maxPrice !== undefined) {
-      query.price.$lte = Number(maxPrice);
+      query.price.$lte =
+        Number(maxPrice);
     }
   }
 
+  // Pagination
+  const currentPage =
+    Math.max(Number(page), 1);
+
+  const currentLimit =
+    Math.min(
+      Math.max(Number(limit), 1),
+      100
+    );
+
   const skip =
-    (Number(page) - 1) *
-    Number(limit);
+    (currentPage - 1) *
+    currentLimit;
+
+  // Sorting
+  let sortOption = {
+    createdAt: -1,
+  };
+
+  switch (sort) {
+    case "oldest":
+      sortOption = {
+        createdAt: 1,
+      };
+      break;
+
+    case "price_asc":
+      sortOption = {
+        price: 1,
+      };
+      break;
+
+    case "price_desc":
+      sortOption = {
+        price: -1,
+      };
+      break;
+
+    case "name_asc":
+      sortOption = {
+        name: 1,
+      };
+      break;
+
+    case "name_desc":
+      sortOption = {
+        name: -1,
+      };
+      break;
+
+    case "newest":
+    default:
+      sortOption = {
+        createdAt: -1,
+      };
+      break;
+  }
 
   const [products, total] =
     await Promise.all([
@@ -121,11 +191,9 @@ const getProducts = async (filters = {}) => {
           "category",
           "name"
         )
-        .sort({
-          createdAt: -1,
-        })
+        .sort(sortOption)
         .skip(skip)
-        .limit(Number(limit)),
+        .limit(currentLimit),
 
       Product.countDocuments(query),
     ]);
@@ -133,9 +201,10 @@ const getProducts = async (filters = {}) => {
   return {
     products,
     total,
-    page: Number(page),
+    page: currentPage,
+    limit: currentLimit,
     pages: Math.ceil(
-      total / Number(limit)
+      total / currentLimit
     ),
   };
 };
@@ -239,7 +308,10 @@ const updateProduct = async (
   ];
 
   allowedFields.forEach((field) => {
-    if (updateData[field] !== undefined) {
+    if (
+      updateData[field] !==
+      undefined
+    ) {
       product[field] =
         updateData[field];
     }
@@ -326,6 +398,47 @@ const updateProductLocation = async (
   return await product.save();
 };
 
+// Get nearby products
+const getNearbyProducts = async (
+  longitude,
+  latitude,
+  distance = 10
+) => {
+  const maxDistance =
+    Number(distance) * 1000;
+
+  const products =
+    await Product.find({
+      isActive: true,
+      verificationStatus: "APPROVED",
+
+      originLocation: {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [
+              Number(longitude),
+              Number(latitude),
+            ],
+          },
+
+          $maxDistance:
+            maxDistance,
+        },
+      },
+    })
+      .populate(
+        "producer",
+        "businessName province district"
+      )
+      .populate(
+        "category",
+        "name"
+      );
+
+  return products;
+};
+
 module.exports = {
   createProduct,
   getProducts,
@@ -334,4 +447,5 @@ module.exports = {
   updateProduct,
   deleteProduct,
   updateProductLocation,
+  getNearbyProducts,
 };
