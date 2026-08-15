@@ -3,6 +3,8 @@ const cors = require("cors");
 const helmet = require("helmet");
 const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
+const mongoSanitize =
+  require("express-mongo-sanitize");
 const path = require("path");
 
 const authRoutes = require("./src/routes/authRoutes");
@@ -19,6 +21,8 @@ const reviewRoutes = require("./src/routes/reviewRoutes");
 const notificationRoutes = require("./src/routes/notificationRoutes");
 const wishlistRoutes = require("./src/routes/wishlistRoutes");
 const adminDashboardRoutes = require("./src/routes/adminDashboardRoutes");
+const apiLimiter =
+  require("./src/middleware/rateLimitMiddleware");
 const uploadRoutes =
   require("./src/routes/uploadRoutes");
 const producerDashboardRoutes =
@@ -132,6 +136,25 @@ app.use(
       "src/uploads"
     )
   )
+);
+app.use(
+  express.json({
+    limit: "10mb",
+  })
+);
+
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: "10mb",
+  })
+);
+app.use(
+  mongoSanitize()
+);
+app.use(
+  "/api",
+  apiLimiter
 );
 // Error handler
 app.use(errorMiddleware);

@@ -1,5 +1,5 @@
 const express = require("express");
-
+const authLimiter = require("../middleware/authRateLimitMiddleware");
 const {
   register,
   login,
@@ -21,6 +21,7 @@ router.post(
   "/register",
   registerValidator,
   validate,
+  authLimiter,
   register
 );
 
@@ -28,6 +29,7 @@ router.post(
   "/login",
   loginValidator,
   validate,
+  authLimiter,
   login
 );
 
