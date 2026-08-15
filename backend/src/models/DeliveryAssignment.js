@@ -71,19 +71,80 @@ const deliveryAssignmentSchema =
         trim: true,
         default: "",
       },
+
+      deliveryLocation: {
+        type: {
+          type: String,
+          enum: ["Point"],
+          default: "Point",
+        },
+
+        coordinates: {
+          type: [Number],
+          default: [0, 0],
+        },
+      },
+
+      route: {
+        type: [[Number]],
+        default: [],
+      },
+
+      distance: {
+        type: Number,
+        default: 0,
+      },
+
+      estimatedTime: {
+        type: Number,
+        default: 0,
+      },
+
+      routeUpdatedAt: {
+        type: Date,
+        default: null,
+      },
+
+      // QR verification
+      deliveryQrToken: {
+        type: String,
+        unique: true,
+        sparse: true,
+      },
+
+      deliveryQrCode: {
+        type: String,
+        default: null,
+      },
+
+      qrVerified: {
+        type: Boolean,
+        default: false,
+      },
+
+      qrVerifiedAt: {
+        type: Date,
+        default: null,
+      },
     },
+
     {
       timestamps: true,
     }
   );
 
+// Index for finding assignments by delivery person and status
 deliveryAssignmentSchema.index({
   deliveryPerson: 1,
   status: 1,
 });
 
-module.exports =
-  mongoose.model(
-    "DeliveryAssignment",
-    deliveryAssignmentSchema
-  );
+// Geospatial index for customer delivery location
+deliveryAssignmentSchema.index({
+  deliveryLocation: "2dsphere",
+});
+
+module.exports = mongoose.model(
+  "DeliveryAssignment",
+  deliveryAssignmentSchema
+);
