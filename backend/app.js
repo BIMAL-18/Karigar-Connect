@@ -10,6 +10,7 @@ const producerRoutes = require("./src/routes/producerRoutes");
 const categoryRoutes = require("./src/routes/categoryRoutes");
 const productRoutes = require("./src/routes/productRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
+const cartRoutes = require("./src/routes/cartRoutes");
 const errorMiddleware = require("./src/middleware/errorMiddleware");
 
 const app = express();
@@ -71,7 +72,10 @@ app.use(
   "/api/admin",
   adminRoutes
 );
-
+app.use(
+  "/api/cart",
+  cartRoutes
+);
 // Error handler
 app.use(errorMiddleware);
 
