@@ -7,6 +7,7 @@ const rateLimit = require("express-rate-limit");
 const authRoutes = require("./src/routes/authRoutes");
 const userRoutes = require("./src/routes/userRoutes");
 const producerRoutes = require("./src/routes/producerRoutes");
+const categoryRoutes = require("./src/routes/categoryRoutes");
 const errorMiddleware = require("./src/middleware/errorMiddleware");
 
 const app = express();
@@ -55,6 +56,10 @@ app.use("/api/users", userRoutes);
 app.use(
   "/api/producers",
   producerRoutes
+);
+app.use(
+  "/api/categories",
+  categoryRoutes
 );
 
 // Error handler
