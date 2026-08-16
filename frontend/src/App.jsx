@@ -42,7 +42,11 @@ import DeliveryDashboard from "./pages/delivery/DeliveryDashboard";
 import DeliveryAssignment from "./pages/delivery/DeliveryAssignment";
 import DeliveryRoute from "./pages/delivery/DeliveryRoute";
 import DeliveryQR from "./pages/delivery/DeliveryQR";
+import DeliveryLiveLocation
+    from "./pages/delivery/DeliveryLiveLocation";
 
+import TrackDelivery
+    from "./pages/orders/TrackDelivery";
 // ==========================================
 // Customer Dashboard
 // ==========================================
@@ -272,6 +276,18 @@ function App() {
     path="/delivery/qr"
     element={<DeliveryQR />}
   />
+  <Route
+    path="/delivery/live-location"
+    element={
+        <DeliveryLiveLocation />
+    }
+/>
+<Route
+    path="/orders/:assignmentId/track"
+    element={
+        <TrackDelivery />
+    }
+/>
 
              
             </Route>

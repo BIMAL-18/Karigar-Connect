@@ -51,9 +51,7 @@ const DeliveryDashboard = () => {
 
       // Optional profile information
       if (response.data?.deliveryPerson) {
-        setProfile(
-          response.data.deliveryPerson
-        );
+        setProfile(response.data.deliveryPerson);
       }
     } catch (err) {
       console.error(
@@ -97,6 +95,7 @@ const DeliveryDashboard = () => {
       assignment.id;
 
     if (!assignmentId) {
+      alert("Delivery assignment ID is missing.");
       return;
     }
 
@@ -350,6 +349,8 @@ const DeliveryDashboard = () => {
 
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
 
+          {/* Total */}
+
           <div className="rounded-2xl border bg-white p-6">
             <div className="flex items-center justify-between">
 
@@ -369,6 +370,8 @@ const DeliveryDashboard = () => {
 
             </div>
           </div>
+
+          {/* Active */}
 
           <div className="rounded-2xl border bg-white p-6">
             <div className="flex items-center justify-between">
@@ -393,6 +396,8 @@ const DeliveryDashboard = () => {
             </div>
           </div>
 
+          {/* Out for delivery */}
+
           <div className="rounded-2xl border bg-white p-6">
             <div className="flex items-center justify-between">
 
@@ -415,6 +420,8 @@ const DeliveryDashboard = () => {
 
             </div>
           </div>
+
+          {/* Delivered */}
 
           <div className="rounded-2xl border bg-white p-6">
             <div className="flex items-center justify-between">
@@ -483,8 +490,10 @@ const DeliveryDashboard = () => {
             </p>
           </Link>
 
-          <div className="rounded-2xl border bg-white p-6">
-
+          <Link
+            to="/delivery/live-location"
+            className="rounded-2xl border bg-white p-6 transition hover:-translate-y-1 hover:shadow-md"
+          >
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100">
               <MapPin size={22} />
             </div>
@@ -497,8 +506,7 @@ const DeliveryDashboard = () => {
               Update your location while
               delivering orders.
             </p>
-
-          </div>
+          </Link>
 
         </div>
 
@@ -545,47 +553,92 @@ const DeliveryDashboard = () => {
 
               {assignments.map(
                 (assignment, index) => {
-                  const order =
-                    assignment.order ||
-                    assignment.orderId ||
-                    {};
+
+                  // =========================
+                  // ASSIGNMENT ID
+                  // =========================
 
                   const assignmentId =
                     assignment._id ||
-                    assignment.id ||
-                    index;
+                    assignment.id;
+
+                  // =========================
+                  // ORDER
+                  // =========================
+
+                  const order =
+                    assignment.order ||
+                    (
+                      typeof assignment.orderId ===
+                      "object"
+                        ? assignment.orderId
+                        : {}
+                    ) ||
+                    {};
+
+                  // =========================
+                  // STATUS
+                  // =========================
 
                   const status =
                     assignment.status ||
                     order.status ||
                     "ASSIGNED";
 
+                  // =========================
+                  // ADDRESS
+                  // =========================
+
                   const address =
                     order.deliveryAddress ||
                     assignment.deliveryAddress ||
                     {};
+
+                  // =========================
+                  // CUSTOMER
+                  // =========================
 
                   const customer =
                     order.customer ||
                     assignment.customer ||
                     {};
 
+                  // =========================
+                  // PHONE
+                  // =========================
+
                   const phone =
                     address.phone ||
-                    customer.phone;
+                    customer.phone ||
+                    order.customerPhone ||
+                    assignment.customerPhone;
+
+                  // =========================
+                  // ORDER ID
+                  // =========================
 
                   const orderId =
                     order._id ||
                     order.id ||
-                    assignment.orderId;
+                    (
+                      typeof assignment.orderId ===
+                      "string"
+                        ? assignment.orderId
+                        : null
+                    );
 
                   return (
                     <div
-                      key={assignmentId}
+                      key={
+                        assignmentId ||
+                        index
+                      }
                       className="rounded-2xl border bg-white p-6"
                     >
 
-                      {/* Top */}
+                      {/* =========================
+                          TOP
+                      ========================== */}
 
                       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
 
@@ -654,7 +707,9 @@ const DeliveryDashboard = () => {
 
                       </div>
 
-                      {/* Details */}
+                      {/* =========================
+                          DETAILS
+                      ========================== */}
 
                       <div className="mt-6 grid gap-5 border-t pt-6 md:grid-cols-2">
 
@@ -668,6 +723,7 @@ const DeliveryDashboard = () => {
                           />
 
                           <div>
+
                             <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
                               Customer
                             </p>
@@ -684,6 +740,7 @@ const DeliveryDashboard = () => {
                                 {phone}
                               </p>
                             )}
+
                           </div>
 
                         </div>
@@ -698,6 +755,7 @@ const DeliveryDashboard = () => {
                           />
 
                           <div>
+
                             <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
                               Delivery Address
                             </p>
@@ -708,6 +766,7 @@ const DeliveryDashboard = () => {
                             </p>
 
                             <p className="mt-1 text-sm text-gray-500">
+
                               {address.municipality &&
                                 `${address.municipality}, `}
 
@@ -716,6 +775,7 @@ const DeliveryDashboard = () => {
 
                               {address.province ||
                                 ""}
+
                             </p>
 
                           </div>
@@ -724,11 +784,15 @@ const DeliveryDashboard = () => {
 
                       </div>
 
-                      {/* Actions */}
+                      {/* =========================
+                          ACTIONS
+                      ========================== */}
 
                       <div className="mt-6 flex flex-wrap gap-3 border-t pt-6">
 
-                        {/* Start pickup */}
+                        {/* =========================
+                            PICKED UP
+                        ========================== */}
 
                         {status ===
                           "ASSIGNED" && (
@@ -756,7 +820,9 @@ const DeliveryDashboard = () => {
                           </button>
                         )}
 
-                        {/* Out for delivery */}
+                        {/* =========================
+                            START DELIVERY
+                        ========================== */}
 
                         {status ===
                           "PICKED_UP" && (
@@ -784,7 +850,9 @@ const DeliveryDashboard = () => {
                           </button>
                         )}
 
-                        {/* Delivered */}
+                        {/* =========================
+                            MARK DELIVERED
+                        ========================== */}
 
                         {status ===
                           "OUT_FOR_DELIVERY" && (
@@ -812,7 +880,9 @@ const DeliveryDashboard = () => {
                           </button>
                         )}
 
-                        {/* Route */}
+                        {/* =========================
+                            ROUTE
+                        ========================== */}
 
                         {orderId && (
                           <Link
@@ -822,11 +892,14 @@ const DeliveryDashboard = () => {
                             <Navigation
                               size={17}
                             />
+
                             View Route
                           </Link>
                         )}
 
-                        {/* QR */}
+                        {/* =========================
+                            QR VERIFY
+                        ========================== */}
 
                         {orderId && (
                           <Link
@@ -836,11 +909,31 @@ const DeliveryDashboard = () => {
                             <QrCode
                               size={17}
                             />
+
                             QR Verify
                           </Link>
                         )}
 
-                        {/* Call */}
+                        {/* =========================
+                            LIVE LOCATION
+                        ========================== */}
+
+                        {assignmentId && (
+                          <Link
+                            to={`/delivery/live-location?assignment=${assignmentId}`}
+                            className="inline-flex items-center gap-2 rounded-xl bg-black px-4 py-3 text-sm font-semibold text-white hover:bg-gray-800"
+                          >
+                            <MapPin
+                              size={17}
+                            />
+
+                            Live Location
+                          </Link>
+                        )}
+
+                        {/* =========================
+                            CALL CUSTOMER
+                        ========================== */}
 
                         {phone && (
                           <a
@@ -850,6 +943,7 @@ const DeliveryDashboard = () => {
                             <Phone
                               size={17}
                             />
+
                             Call Customer
                           </a>
                         )}

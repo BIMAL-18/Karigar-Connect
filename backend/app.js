@@ -18,6 +18,8 @@ const adminOrderRoutes = require("./src/routes/adminOrderRoutes");
 const reviewRoutes = require("./src/routes/reviewRoutes");
 const notificationRoutes = require("./src/routes/notificationRoutes");
 const wishlistRoutes = require("./src/routes/wishlistRoutes");
+const deliveryLocationRoutes =
+  require("./src/routes/deliveryLocation");
 
 const deliveryPersonRoutes =
   require("./src/routes/deliveryPersonRoutes");
@@ -248,6 +250,10 @@ app.use(
 app.use(
   "/api",
   apiLimiter
+);
+app.use(
+  "/api/delivery-location",
+  deliveryLocationRoutes
 );
 
 // =========================
