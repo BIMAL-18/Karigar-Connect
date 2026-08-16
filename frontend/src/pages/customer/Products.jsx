@@ -1,622 +1,552 @@
 import {
-  ChevronLeft,
-  ChevronRight,
-  Filter,
   Search,
-  X,
+  SlidersHorizontal,
+  ShoppingCart,
+  MapPin,
+  Package,
 } from "lucide-react";
+
+import {
+  Link,
+} from "react-router-dom";
 
 import {
   useEffect,
   useState,
 } from "react";
 
-import {
-  useSearchParams,
-} from "react-router-dom";
-
 import productService from "../../services/productService";
-import categoryService from "../../services/categoryService";
-
-import ProductGrid from "../../components/product/ProductGrid";
 
 const Products = () => {
-  const [
-    searchParams,
-    setSearchParams,
-  ] = useSearchParams();
-
   const [products, setProducts] =
-    useState([]);
-
-  const [categories, setCategories] =
     useState([]);
 
   const [loading, setLoading] =
     useState(true);
 
-  const [showFilters, setShowFilters] =
-    useState(false);
+  const [error, setError] =
+    useState("");
 
-  const [total, setTotal] =
-    useState(0);
+  const [search, setSearch] =
+    useState("");
+
+  const [category, setCategory] =
+    useState("");
+
+  const [province, setProvince] =
+    useState("");
+
+  const [page, setPage] =
+    useState(1);
 
   const [pages, setPages] =
     useState(1);
 
-  const [form, setForm] =
-    useState({
-      search:
-        searchParams.get(
-          "search"
-        ) || "",
+  const [showFilters, setShowFilters] =
+    useState(false);
 
-      category:
-        searchParams.get(
-          "category"
-        ) || "",
 
-      province:
-        searchParams.get(
-          "province"
-        ) || "",
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-      district:
-        searchParams.get(
-          "district"
-        ) || "",
+      const params = {
+        page,
+        limit: 12,
+      };
 
-      minPrice:
-        searchParams.get(
-          "minPrice"
-        ) || "",
+      if (search.trim()) {
+        params.search =
+          search.trim();
+      }
 
-      maxPrice:
-        searchParams.get(
-          "maxPrice"
-        ) || "",
-    });
+      if (category) {
+        params.category =
+          category;
+      }
 
-  const currentPage =
-    Number(
-      searchParams.get("page")
-    ) || 1;
+      if (province) {
+        params.province =
+          province;
+      }
 
-  useEffect(() => {
-    loadCategories();
-  }, []);
+      const response =
+        await productService.getProducts(
+          params
+        );
+
+      const data =
+        response.data || response;
+
+      setProducts(
+        data.products || []
+      );
+
+      setPages(
+        data.pages || 1
+      );
+    } catch (error) {
+      console.error(error);
+
+      setError(
+        error.response?.data
+          ?.message ||
+          "Failed to load products."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     loadProducts();
-  }, [searchParams]);
+  }, [
+    page,
+    category,
+    province,
+  ]);
 
-  const loadCategories =
-    async () => {
-      try {
-        const data =
-          await categoryService.getCategories();
 
-        setCategories(
-          data.categories ||
-            data.data ||
-            data ||
-            []
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load categories:",
-          error
-        );
-      }
-    };
-
-  const loadProducts =
-    async () => {
-      setLoading(true);
-
-      try {
-        const params = {
-          page: currentPage,
-          limit: 12,
-        };
-
-        const search =
-          searchParams.get(
-            "search"
-          );
-
-        const category =
-          searchParams.get(
-            "category"
-          );
-
-        const province =
-          searchParams.get(
-            "province"
-          );
-
-        const district =
-          searchParams.get(
-            "district"
-          );
-
-        const minPrice =
-          searchParams.get(
-            "minPrice"
-          );
-
-        const maxPrice =
-          searchParams.get(
-            "maxPrice"
-          );
-
-        if (search)
-          params.search =
-            search;
-
-        if (category)
-          params.category =
-            category;
-
-        if (province)
-          params.province =
-            province;
-
-        if (district)
-          params.district =
-            district;
-
-        if (minPrice)
-          params.minPrice =
-            minPrice;
-
-        if (maxPrice)
-          params.maxPrice =
-            maxPrice;
-
-        const data =
-          await productService.getProducts(
-            params
-          );
-
-        setProducts(
-          data.products ||
-            data.data ||
-            []
-        );
-
-        setTotal(
-          data.total || 0
-        );
-
-        setPages(
-          data.pages || 1
-        );
-      } catch (error) {
-        console.error(
-          "Failed to load products:",
-          error
-        );
-
-        setProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-  const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]:
-        e.target.value,
-    });
-  };
-
-  const applyFilters = (e) => {
+  const handleSearch = (e) => {
     e.preventDefault();
 
-    const params = {};
-
-    Object.entries(form).forEach(
-      ([key, value]) => {
-        if (value.trim()) {
-          params[key] = value;
-        }
-      }
-    );
-
-    params.page = 1;
-
-    setSearchParams(params);
-    setShowFilters(false);
+    setPage(1);
+    loadProducts();
   };
+
 
   const clearFilters = () => {
-    setForm({
-      search: "",
-      category: "",
-      province: "",
-      district: "",
-      minPrice: "",
-      maxPrice: "",
-    });
-
-    setSearchParams({});
+    setSearch("");
+    setCategory("");
+    setProvince("");
+    setPage(1);
   };
 
-  const changePage = (
-    page
-  ) => {
-    if (
-      page < 1 ||
-      page > pages
-    ) {
-      return;
-    }
 
-    const params =
-      Object.fromEntries(
-        searchParams.entries()
-      );
+  if (error) {
+    return (
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="text-center">
 
-    params.page = page;
+          <Package
+            size={45}
+            className="mx-auto text-gray-400"
+          />
 
-    setSearchParams(params);
+          <h1 className="mt-4 text-2xl font-black">
+            Unable to Load Products
+          </h1>
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
+          <p className="mt-2 text-gray-500">
+            {error}
+          </p>
+
+          <button
+            onClick={loadProducts}
+            className="mt-6 rounded-xl bg-black px-5 py-3 font-semibold text-white"
+          >
+            Try Again
+          </button>
+
+        </div>
+      </div>
+    );
+  }
+
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
 
-      <section className="border-b bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <p className="text-sm font-semibold uppercase tracking-wider text-gray-500">
-            Marketplace
-          </p>
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
 
-          <div className="mt-2 flex flex-col justify-between gap-5 md:flex-row md:items-end">
-            <div>
-              <h1 className="text-4xl font-black">
-                Discover Local Products
-              </h1>
+        {/* Header */}
 
-              <p className="mt-2 text-gray-500">
-                Find authentic products
-                from local producers
-                across Nepal.
-              </p>
-            </div>
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
 
-            <button
-              onClick={() =>
-                setShowFilters(
-                  !showFilters
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wider text-gray-500">
+              Karigar Connect
+            </p>
+
+            <h1 className="mt-1 text-4xl font-black">
+              Explore Products
+            </h1>
+
+            <p className="mt-2 text-gray-500">
+              Discover handmade products
+              from local Nepali producers.
+            </p>
+          </div>
+
+
+          <Link
+            to="/cart"
+            className="flex w-fit items-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white"
+          >
+            <ShoppingCart size={18} />
+            Cart
+          </Link>
+
+        </div>
+
+
+        {/* Search */}
+
+        <form
+          onSubmit={handleSearch}
+          className="mt-8 flex flex-col gap-3 sm:flex-row"
+        >
+
+          <div className="relative flex-1">
+
+            <Search
+              size={20}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+
+            <input
+              type="text"
+              value={search}
+              onChange={(e) =>
+                setSearch(
+                  e.target.value
                 )
               }
-              className="flex items-center justify-center gap-2 rounded-xl border bg-white px-5 py-3 font-semibold hover:bg-gray-100 md:hidden"
-            >
-              <Filter size={18} />
+              placeholder="Search handmade products..."
+              className="w-full rounded-xl border bg-white py-3.5 pl-12 pr-4 outline-none focus:border-black"
+            />
 
-              Filters
-            </button>
           </div>
-        </div>
-      </section>
 
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
-          {/* Sidebar */}
 
-          <aside
-            className={`${
-              showFilters
-                ? "block"
-                : "hidden"
-            } lg:block`}
+          <button
+            type="submit"
+            className="rounded-xl bg-black px-7 py-3 font-semibold text-white"
           >
-            <div className="sticky top-28 rounded-2xl border bg-white p-5">
-              <div className="mb-5 flex items-center justify-between">
-                <h2 className="text-lg font-bold">
-                  Filters
-                </h2>
+            Search
+          </button>
 
+
+          <button
+            type="button"
+            onClick={() =>
+              setShowFilters(
+                !showFilters
+              )
+            }
+            className="flex items-center justify-center gap-2 rounded-xl border bg-white px-5 py-3 font-semibold"
+          >
+            <SlidersHorizontal
+              size={18}
+            />
+            Filters
+          </button>
+
+        </form>
+
+
+        {/* Filters */}
+
+        {showFilters && (
+          <div className="mt-5 rounded-2xl border bg-white p-5">
+
+            <div className="grid gap-4 md:grid-cols-3">
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold">
+                  Category
+                </label>
+
+                <input
+                  type="text"
+                  value={category}
+                  onChange={(e) => {
+                    setCategory(
+                      e.target.value
+                    );
+                    setPage(1);
+                  }}
+                  placeholder="Category ID"
+                  className="w-full rounded-xl border px-4 py-3 outline-none focus:border-black"
+                />
+              </div>
+
+
+              <div>
+                <label className="mb-2 block text-sm font-semibold">
+                  Province
+                </label>
+
+                <select
+                  value={province}
+                  onChange={(e) => {
+                    setProvince(
+                      e.target.value
+                    );
+                    setPage(1);
+                  }}
+                  className="w-full rounded-xl border bg-white px-4 py-3 outline-none focus:border-black"
+                >
+                  <option value="">
+                    All Provinces
+                  </option>
+
+                  <option value="Bagmati">
+                    Bagmati
+                  </option>
+
+                  <option value="Gandaki">
+                    Gandaki
+                  </option>
+
+                  <option value="Lumbini">
+                    Lumbini
+                  </option>
+
+                  <option value="Koshi">
+                    Koshi
+                  </option>
+
+                  <option value="Madhesh">
+                    Madhesh
+                  </option>
+
+                  <option value="Karnali">
+                    Karnali
+                  </option>
+
+                  <option value="Sudurpashchim">
+                    Sudurpashchim
+                  </option>
+                </select>
+              </div>
+
+
+              <div className="flex items-end">
                 <button
+                  type="button"
                   onClick={
                     clearFilters
                   }
-                  className="text-sm text-gray-500 hover:text-black"
+                  className="w-full rounded-xl border px-4 py-3 font-semibold hover:bg-gray-50"
                 >
-                  Clear
+                  Clear Filters
                 </button>
               </div>
 
-              <form
-                onSubmit={
-                  applyFilters
-                }
-                className="space-y-5"
-              >
-                {/* Search */}
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold">
-                    Search
-                  </label>
-
-                  <div className="flex items-center rounded-lg border px-3">
-                    <Search
-                      size={17}
-                      className="text-gray-400"
-                    />
-
-                    <input
-                      name="search"
-                      value={
-                        form.search
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="Search..."
-                      className="w-full px-2 py-3 outline-none"
-                    />
-                  </div>
-                </div>
-
-                {/* Category */}
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold">
-                    Category
-                  </label>
-
-                  <select
-                    name="category"
-                    value={
-                      form.category
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    className="w-full rounded-lg border px-3 py-3 outline-none"
-                  >
-                    <option value="">
-                      All categories
-                    </option>
-
-                    {categories.map(
-                      (category) => (
-                        <option
-                          key={
-                            category._id
-                          }
-                          value={
-                            category._id
-                          }
-                        >
-                          {
-                            category.name
-                          }
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-
-                {/* Province */}
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold">
-                    Province
-                  </label>
-
-                  <input
-                    name="province"
-                    value={
-                      form.province
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    placeholder="e.g. Bagmati"
-                    className="w-full rounded-lg border px-3 py-3 outline-none"
-                  />
-                </div>
-
-                {/* District */}
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold">
-                    District
-                  </label>
-
-                  <input
-                    name="district"
-                    value={
-                      form.district
-                    }
-                    onChange={
-                      handleChange
-                    }
-                    placeholder="e.g. Kathmandu"
-                    className="w-full rounded-lg border px-3 py-3 outline-none"
-                  />
-                </div>
-
-                {/* Price */}
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold">
-                    Price Range
-                  </label>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
-                      name="minPrice"
-                      value={
-                        form.minPrice
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="Min"
-                      min="0"
-                      className="w-full rounded-lg border px-3 py-3 outline-none"
-                    />
-
-                    <input
-                      type="number"
-                      name="maxPrice"
-                      value={
-                        form.maxPrice
-                      }
-                      onChange={
-                        handleChange
-                      }
-                      placeholder="Max"
-                      min="0"
-                      className="w-full rounded-lg border px-3 py-3 outline-none"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full rounded-xl bg-black px-4 py-3 font-semibold text-white hover:bg-gray-800"
-                >
-                  Apply Filters
-                </button>
-              </form>
-            </div>
-          </aside>
-
-          {/* Products */}
-
-          <main>
-            <div className="mb-6 flex items-center justify-between">
-              <p className="text-sm text-gray-500">
-                {loading
-                  ? "Loading products..."
-                  : `${total} product${
-                      total !== 1
-                        ? "s"
-                        : ""
-                    } found`}
-              </p>
-
-              {(searchParams.get(
-                "search"
-              ) ||
-                searchParams.get(
-                  "category"
-                ) ||
-                searchParams.get(
-                  "province"
-                ) ||
-                searchParams.get(
-                  "district"
-                ) ||
-                searchParams.get(
-                  "minPrice"
-                ) ||
-                searchParams.get(
-                  "maxPrice"
-                )) && (
-                <button
-                  onClick={
-                    clearFilters
-                  }
-                  className="flex items-center gap-1 text-sm font-medium"
-                >
-                  <X size={15} />
-                  Clear filters
-                </button>
-              )}
             </div>
 
-            <ProductGrid
-              products={products}
-              loading={loading}
+          </div>
+        )}
+
+
+        {/* Products */}
+
+        {loading ? (
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+            {Array.from({
+              length: 8,
+            }).map(
+              (_, index) => (
+                <div
+                  key={index}
+                  className="animate-pulse overflow-hidden rounded-2xl border bg-white"
+                >
+                  <div className="h-56 bg-gray-200" />
+
+                  <div className="space-y-3 p-5">
+                    <div className="h-5 rounded bg-gray-200" />
+
+                    <div className="h-4 w-2/3 rounded bg-gray-200" />
+
+                    <div className="h-6 w-1/3 rounded bg-gray-200" />
+                  </div>
+                </div>
+              )
+            )}
+
+          </div>
+        ) : products.length === 0 ? (
+
+          <div className="mt-12 rounded-2xl border bg-white py-20 text-center">
+
+            <Package
+              size={45}
+              className="mx-auto text-gray-300"
             />
 
-            {/* Pagination */}
+            <h2 className="mt-5 text-2xl font-black">
+              No Products Found
+            </h2>
 
-            {!loading &&
-              pages > 1 && (
-                <div className="mt-10 flex items-center justify-center gap-2">
-                  <button
-                    disabled={
-                      currentPage ===
-                      1
+            <p className="mt-2 text-gray-500">
+              Try another search or
+              change your filters.
+            </p>
+
+          </div>
+
+        ) : (
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+            {products.map(
+              (product) => {
+
+                const image =
+                  product.images?.[0];
+
+                return (
+                  <Link
+                    key={
+                      product._id
                     }
-                    onClick={() =>
-                      changePage(
-                        currentPage -
-                          1
-                      )
-                    }
-                    className="rounded-lg border bg-white p-3 disabled:cursor-not-allowed disabled:opacity-40"
+                    to={`/products/${product._id}`}
+                    className="group overflow-hidden rounded-2xl border bg-white transition hover:-translate-y-1 hover:shadow-lg"
                   >
-                    <ChevronLeft
-                      size={18}
-                    />
-                  </button>
 
-                  {Array.from(
-                    {
-                      length: pages,
-                    },
-                    (_, index) =>
-                      index + 1
-                  ).map(
-                    (page) => (
-                      <button
-                        key={page}
-                        onClick={() =>
-                          changePage(
-                            page
-                          )
-                        }
-                        className={`h-10 w-10 rounded-lg font-medium ${
-                          page ===
-                          currentPage
-                            ? "bg-black text-white"
-                            : "border bg-white hover:bg-gray-100"
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    )
-                  )}
+                    {/* Image */}
 
-                  <button
-                    disabled={
-                      currentPage ===
-                      pages
-                    }
-                    onClick={() =>
-                      changePage(
-                        currentPage +
-                          1
-                      )
-                    }
-                    className="rounded-lg border bg-white p-3 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <ChevronRight
-                      size={18}
-                    />
-                  </button>
-                </div>
-              )}
-          </main>
-        </div>
+                    <div className="relative h-56 overflow-hidden bg-gray-100">
+
+                      {image ? (
+                        <img
+                          src={image}
+                          alt={
+                            product.name
+                          }
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <Package
+                            size={45}
+                            className="text-gray-300"
+                          />
+                        </div>
+                      )}
+
+                    </div>
+
+
+                    {/* Content */}
+
+                    <div className="p-5">
+
+                      <div className="flex items-start justify-between gap-3">
+
+                        <h2 className="line-clamp-2 text-lg font-bold">
+                          {product.name}
+                        </h2>
+
+                        <span className="shrink-0 text-lg font-black">
+                          Rs.{" "}
+                          {Number(
+                            product.price ||
+                              0
+                          ).toLocaleString()}
+                        </span>
+
+                      </div>
+
+
+                      <p className="mt-2 line-clamp-2 text-sm text-gray-500">
+                        {product.description}
+                      </p>
+
+
+                      <div className="mt-4 flex items-center gap-1.5 text-xs text-gray-500">
+
+                        <MapPin
+                          size={14}
+                        />
+
+                        <span>
+                          {product.district ||
+                            "Nepal"}
+                          {product.province &&
+                            `, ${product.province}`}
+                        </span>
+
+                      </div>
+
+
+                      <div className="mt-4 flex items-center justify-between border-t pt-4">
+
+                        <span className="text-sm font-medium text-gray-500">
+                          {product.stock >
+                          0
+                            ? `${product.stock} available`
+                            : "Out of stock"}
+                        </span>
+
+                        <span className="text-sm font-bold">
+                          View Product →
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  </Link>
+                );
+              }
+            )}
+
+          </div>
+        )}
+
+
+        {/* Pagination */}
+
+        {!loading &&
+          products.length > 0 &&
+          pages > 1 && (
+            <div className="mt-10 flex items-center justify-center gap-2">
+
+              <button
+                disabled={
+                  page === 1
+                }
+                onClick={() =>
+                  setPage(
+                    page - 1
+                  )
+                }
+                className="rounded-xl border bg-white px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Previous
+              </button>
+
+
+              <span className="px-4 text-sm font-semibold">
+                Page {page} of{" "}
+                {pages}
+              </span>
+
+
+              <button
+                disabled={
+                  page === pages
+                }
+                onClick={() =>
+                  setPage(
+                    page + 1
+                  )
+                }
+                className="rounded-xl border bg-white px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Next
+              </button>
+
+            </div>
+          )}
+
       </div>
+
     </div>
   );
 };
