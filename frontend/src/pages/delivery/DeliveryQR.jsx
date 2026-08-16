@@ -1,888 +1,1541 @@
-
 import {
-  ArrowLeft,
-  CheckCircle,
-  Package,
-  QrCode,
-  RefreshCw,
-  ScanLine,
-  Search,
-  XCircle,
+    ArrowLeft,
+    CheckCircle,
+    Package,
+    QrCode,
+    RefreshCw,
+    ScanLine,
+    Search,
+    XCircle,
 } from "lucide-react";
 
 import {
-  Link,
-  useSearchParams,
+    Link,
+    useSearchParams,
 } from "react-router-dom";
 
 import {
-  useEffect,
-  useState,
+    useEffect,
+    useState,
 } from "react";
 
 import api from "../../services/api";
 
+
 const DeliveryQR = () => {
-  const [searchParams] = useSearchParams();
 
-  const orderQuery = searchParams.get("order");
+    const [searchParams] =
+        useSearchParams();
 
-  const [assignments, setAssignments] =
-    useState([]);
+    const orderQuery =
+        searchParams.get("order");
 
-  const [selectedAssignment, setSelectedAssignment] =
-    useState(null);
 
-  const [qrData, setQrData] = useState("");
+    // =====================================================
+    // STATE
+    // =====================================================
 
-  const [verificationResult, setVerificationResult] =
-    useState(null);
+    const [assignments, setAssignments] =
+        useState([]);
 
-  const [loading, setLoading] =
-    useState(true);
+    const [
+        selectedAssignment,
+        setSelectedAssignment,
+    ] = useState(null);
 
-  const [refreshing, setRefreshing] =
-    useState(false);
+    const [qrImage, setQrImage] =
+        useState("");
 
-  const [verifying, setVerifying] =
-    useState(false);
+    const [qrToken, setQrToken] =
+        useState("");
 
-  const [error, setError] =
-    useState("");
+    const [
+        verificationResult,
+        setVerificationResult,
+    ] = useState(null);
 
-  const [manualCode, setManualCode] =
-    useState("");
+    const [loading, setLoading] =
+        useState(true);
 
-  // =========================
-  // LOAD ASSIGNMENTS
-  // =========================
+    const [refreshing, setRefreshing] =
+        useState(false);
 
-  const loadAssignments = async () => {
-    try {
-      setError("");
+    const [generating, setGenerating] =
+        useState(false);
 
-      const response = await api.get(
-        "/delivery-assignments/my"
-      );
+    const [verifying, setVerifying] =
+        useState(false);
 
-      const data =
-        response.data?.assignments ||
-        response.data?.data ||
-        response.data ||
-        [];
+    const [error, setError] =
+        useState("");
 
-      const list = Array.isArray(data)
-        ? data
-        : [];
+    const [manualCode, setManualCode] =
+        useState("");
 
-      setAssignments(list);
 
-      // Select order from URL
-      if (orderQuery) {
-        const matched = list.find(
-          (assignment) => {
-            const order =
-              assignment.order ||
-              assignment.orderId ||
-              {};
+    // =====================================================
+    // HELPERS
+    // =====================================================
 
-            const currentOrderId =
-              order._id ||
-              order.id ||
-              assignment.orderId;
+    const getAssignmentId = (
+        assignment
+    ) => {
 
-            return (
-              String(currentOrderId) ===
-              String(orderQuery)
+        if (!assignment) {
+            return null;
+        }
+
+        return (
+            assignment._id ||
+            assignment.id ||
+            null
+        );
+    };
+
+
+    const getOrderId = (
+        assignment
+    ) => {
+
+        if (!assignment) {
+            return null;
+        }
+
+        const order =
+            assignment.order ||
+            assignment.orderId ||
+            {};
+
+        return (
+            order._id ||
+            order.id ||
+            (
+                typeof assignment.orderId ===
+                "string"
+                    ? assignment.orderId
+                    : null
+            ) ||
+            null
+        );
+    };
+
+
+    const formatStatus = (
+        status
+    ) => {
+
+        if (!status) {
+            return "Unknown";
+        }
+
+        return String(status)
+            .replaceAll("_", " ")
+            .toLowerCase()
+            .replace(
+                /\b\w/g,
+                (letter) =>
+                    letter.toUpperCase()
             );
-          }
-        );
+    };
 
-        if (matched) {
-          setSelectedAssignment(matched);
+
+    // =====================================================
+    // EXTRACT QR DATA
+    // =====================================================
+
+    const extractQrData = (
+        responseData
+    ) => {
+
+        const root =
+            responseData?.data ||
+            responseData;
+
+
+        if (!root) {
+            return {
+                image: "",
+                token: "",
+            };
         }
-      } else if (list.length > 0) {
-        setSelectedAssignment(list[0]);
-      }
-    } catch (err) {
-      console.error(
-        "Failed to load delivery assignments:",
-        err
-      );
 
-      setError(
-        err.response?.data?.message ||
-          "Failed to load delivery assignments."
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
 
-  useEffect(() => {
-    loadAssignments();
-  }, [orderQuery]);
+        // Direct string
+        if (
+            typeof root ===
+            "string"
+        ) {
 
-  // =========================
-  // REFRESH
-  // =========================
+            if (
+                root.startsWith(
+                    "data:image"
+                )
+            ) {
+                return {
+                    image: root,
+                    token: "",
+                };
+            }
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-
-    await loadAssignments();
-  };
-
-  // =========================
-  // SELECT ORDER
-  // =========================
-
-  const selectAssignment = (
-    assignment
-  ) => {
-    setSelectedAssignment(assignment);
-    setQrData("");
-    setVerificationResult(null);
-    setManualCode("");
-    setError("");
-  };
-
-  // =========================
-  // GET ORDER ID
-  // =========================
-
-  const getOrderId = (assignment) => {
-    if (!assignment) {
-      return null;
-    }
-
-    const order =
-      assignment.order ||
-      assignment.orderId ||
-      {};
-
-    return (
-      order._id ||
-      order.id ||
-      assignment.orderId ||
-      null
-    );
-  };
-
-  // =========================
-  // GENERATE QR
-  // =========================
-
-  const generateQR = async () => {
-    if (!selectedAssignment) {
-      setError(
-        "Please select a delivery first."
-      );
-
-      return;
-    }
-
-    const assignmentId =
-      selectedAssignment._id ||
-      selectedAssignment.id;
-
-    const orderId =
-      getOrderId(selectedAssignment);
-
-    try {
-      setError("");
-      setQrData("");
-      setVerificationResult(null);
-
-      /*
-       * Try the assignment-based endpoint first.
-       *
-       * If your backend uses a different endpoint,
-       * change only this request.
-       */
-
-      const response = await api.post(
-        `/delivery-qr/generate`,
-        {
-          assignmentId,
-          orderId,
+            return {
+                image: "",
+                token: root,
+            };
         }
-      );
-
-      const data =
-        response.data?.qr ||
-        response.data?.qrData ||
-        response.data?.data ||
-        response.data;
-
-      if (typeof data === "string") {
-        setQrData(data);
-      } else {
-        setQrData(
-          data?.qrCode ||
-            data?.code ||
-            data?.token ||
-            ""
-        );
-      }
-    } catch (err) {
-      console.error(
-        "Failed to generate QR:",
-        err
-      );
-
-      setError(
-        err.response?.data?.message ||
-          "Unable to generate QR code."
-      );
-    }
-  };
-
-  // =========================
-  // VERIFY QR
-  // =========================
-
-  const verifyQR = async (
-    code = manualCode
-  ) => {
-    if (!code.trim()) {
-      setError(
-        "Please enter a QR verification code."
-      );
-
-      return;
-    }
-
-    try {
-      setVerifying(true);
-      setError("");
-      setVerificationResult(null);
-
-      const assignmentId =
-        selectedAssignment?._id ||
-        selectedAssignment?.id;
-
-      const orderId =
-        getOrderId(selectedAssignment);
-
-      const response = await api.post(
-        `/delivery-qr/verify`,
-        {
-          code: code.trim(),
-          assignmentId,
-          orderId,
-        }
-      );
-
-      setVerificationResult({
-        success: true,
-        message:
-          response.data?.message ||
-          "QR verification successful.",
-        data:
-          response.data?.data ||
-          response.data,
-      });
-    } catch (err) {
-      console.error(
-        "QR verification failed:",
-        err
-      );
-
-      setVerificationResult({
-        success: false,
-        message:
-          err.response?.data?.message ||
-          "QR verification failed.",
-      });
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  // =========================
-  // FORMAT STATUS
-  // =========================
-
-  const formatStatus = (status) => {
-    if (!status) {
-      return "Unknown";
-    }
-
-    return status
-      .replaceAll("_", " ")
-      .toLowerCase()
-      .replace(
-        /\b\w/g,
-        (letter) =>
-          letter.toUpperCase()
-      );
-  };
-
-  // =========================
-  // SELECTED ORDER
-  // =========================
-
-  const selectedOrder =
-    selectedAssignment?.order ||
-    selectedAssignment?.orderId ||
-    {};
-
-  const selectedOrderId =
-    getOrderId(selectedAssignment);
-
-  const selectedStatus =
-    selectedAssignment?.status ||
-    selectedOrder?.status ||
-    "ASSIGNED";
-
-  // =========================
-  // LOADING
-  // =========================
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <div className="animate-pulse space-y-6">
-
-            <div className="h-10 w-72 rounded bg-gray-200" />
-
-            <div className="grid gap-6 lg:grid-cols-3">
-              <div className="h-[500px] rounded-2xl bg-gray-200" />
-
-              <div className="h-[500px] rounded-2xl bg-gray-200 lg:col-span-2" />
-            </div>
-
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // =========================
-  // PAGE
-  // =========================
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-
-        {/* =========================
-            HEADER
-        ========================== */}
-
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-
-          <div>
-
-            <Link
-              to="/delivery"
-              className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-black"
-            >
-              <ArrowLeft size={17} />
-              Back to Dashboard
-            </Link>
-
-            <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-gray-500">
-              Delivery Panel
-            </p>
-
-            <h1 className="mt-1 text-3xl font-black sm:text-4xl">
-              QR Verification
-            </h1>
-
-            <p className="mt-2 text-gray-500">
-              Generate and verify delivery QR
-              codes.
-            </p>
-
-          </div>
-
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            <RefreshCw
-              size={18}
-              className={
-                refreshing
-                  ? "animate-spin"
-                  : ""
-              }
-            />
-
-            {refreshing
-              ? "Refreshing..."
-              : "Refresh"}
-          </button>
-
-        </div>
-
-        {/* =========================
-            ERROR
-        ========================== */}
-
-        {error && (
-          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-5">
-
-            <div className="flex items-start gap-3">
-
-              <XCircle
-                size={22}
-                className="mt-0.5 text-red-600"
-              />
-
-              <div>
-                <p className="font-bold text-red-700">
-                  Error
-                </p>
-
-                <p className="mt-1 text-sm text-red-600">
-                  {error}
-                </p>
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* =========================
-            MAIN
-        ========================== */}
-
-        {assignments.length === 0 ? (
-          <div className="mt-8 rounded-2xl border bg-white p-12 text-center">
-
-            <QrCode
-              size={55}
-              className="mx-auto text-gray-300"
-            />
-
-            <h2 className="mt-5 text-2xl font-black">
-              No Deliveries
-            </h2>
-
-            <p className="mt-2 text-gray-500">
-              You don't have any delivery
-              assignments to verify.
-            </p>
-
-            <Link
-              to="/delivery"
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white"
-            >
-              <ArrowLeft size={17} />
-              Back to Dashboard
-            </Link>
-
-          </div>
-        ) : (
-          <div className="mt-8 grid gap-6 lg:grid-cols-3">
-
-            {/* =========================
-                ORDERS
-            ========================== */}
-
-            <div className="rounded-2xl border bg-white p-5">
-
-              <div className="flex items-center gap-3">
-
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
-                  <Package size={21} />
-                </div>
-
-                <div>
-                  <h2 className="font-black">
-                    My Deliveries
-                  </h2>
-
-                  <p className="text-sm text-gray-500">
-                    Select an order
-                  </p>
-                </div>
-
-              </div>
-
-              <div className="mt-5 space-y-3">
-
-                {assignments.map(
-                  (assignment, index) => {
-                    const order =
-                      assignment.order ||
-                      assignment.orderId ||
-                      {};
-
-                    const id =
-                      assignment._id ||
-                      assignment.id ||
-                      index;
-
-                    const orderId =
-                      order._id ||
-                      order.id ||
-                      assignment.orderId;
-
-                    const status =
-                      assignment.status ||
-                      order.status ||
-                      "ASSIGNED";
-
-                    const selected =
-                      selectedAssignment ===
-                      assignment;
-
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() =>
-                          selectAssignment(
-                            assignment
-                          )
+
+
+        const data =
+            root.data ||
+            root;
+
+
+        const image =
+            data.qrCode ||
+            data.qrImage ||
+            data.image ||
+            data.imageData ||
+            "";
+
+
+        const token =
+            data.token ||
+            data.qrToken ||
+            data.verificationToken ||
+            data.deliveryQrToken ||
+            data.code ||
+            "";
+
+
+        return {
+
+            image:
+                typeof image ===
+                    "string" &&
+                image.startsWith(
+                    "data:image"
+                )
+                    ? image
+                    : "",
+
+            token:
+                typeof token ===
+                    "string"
+                    ? token
+                    : "",
+        };
+    };
+
+
+    // =====================================================
+    // LOAD ASSIGNMENTS
+    // =====================================================
+
+    const loadAssignments =
+        async () => {
+
+            try {
+
+                setError("");
+
+                const response =
+                    await api.get(
+                        "/delivery-assignments/my-deliveries"
+                    );
+
+
+                const data =
+                    response.data
+                        ?.assignments ||
+                    response.data
+                        ?.data ||
+                    response.data ||
+                    [];
+
+
+                const list =
+                    Array.isArray(data)
+                        ? data
+                        : [];
+
+
+                setAssignments(list);
+
+
+                let selected =
+                    null;
+
+
+                if (orderQuery) {
+
+                    selected =
+                        list.find(
+                            (
+                                assignment
+                            ) => {
+
+                                const currentOrderId =
+                                    getOrderId(
+                                        assignment
+                                    );
+
+                                return (
+                                    String(
+                                        currentOrderId
+                                    ) ===
+                                    String(
+                                        orderQuery
+                                    )
+                                );
+                            }
+                        );
+                }
+
+
+                if (
+                    !selected &&
+                    list.length > 0
+                ) {
+                    selected =
+                        list[0];
+                }
+
+
+                if (selected) {
+
+                    setSelectedAssignment(
+                        selected
+                    );
+
+                    await loadExistingQR(
+                        selected
+                    );
+                }
+
+            } catch (err) {
+
+                console.error(
+                    "Failed to load delivery assignments:",
+                    err
+                );
+
+
+                setError(
+                    err.response?.data
+                        ?.message ||
+                    "Failed to load delivery assignments."
+                );
+
+            } finally {
+
+                setLoading(false);
+
+                setRefreshing(false);
+            }
+        };
+
+
+    // =====================================================
+    // INITIAL LOAD
+    // =====================================================
+
+    useEffect(() => {
+
+        loadAssignments();
+
+    }, [orderQuery]);
+
+
+    // =====================================================
+    // REFRESH
+    // =====================================================
+
+    const handleRefresh =
+        async () => {
+
+            setRefreshing(true);
+
+            await loadAssignments();
+        };
+
+
+    // =====================================================
+    // SELECT ASSIGNMENT
+    // =====================================================
+
+    const selectAssignment =
+        async (
+            assignment
+        ) => {
+
+            setSelectedAssignment(
+                assignment
+            );
+
+            setQrImage("");
+
+            setQrToken("");
+
+            setManualCode("");
+
+            setVerificationResult(
+                null
+            );
+
+            setError("");
+
+            await loadExistingQR(
+                assignment
+            );
+        };
+
+
+    // =====================================================
+    // LOAD EXISTING QR
+    // =====================================================
+
+    const loadExistingQR =
+        async (
+            assignment
+        ) => {
+
+            const assignmentId =
+                getAssignmentId(
+                    assignment
+                );
+
+
+            if (!assignmentId) {
+                return;
+            }
+
+
+            try {
+
+                const response =
+                    await api.get(
+                        `/delivery-qr/${assignmentId}`
+                    );
+
+
+                const {
+                    image,
+                    token,
+                } =
+                    extractQrData(
+                        response.data
+                    );
+
+
+                if (image) {
+                    setQrImage(image);
+                }
+
+
+                if (token) {
+                    setQrToken(token);
+                }
+
+            } catch (err) {
+
+                if (
+                    err.response
+                        ?.status !==
+                    404
+                ) {
+
+                    console.error(
+                        "Failed to load existing QR:",
+                        err
+                    );
+                }
+            }
+        };
+
+
+    // =====================================================
+    // GENERATE QR
+    // =====================================================
+
+    const generateQR =
+        async () => {
+
+            if (!selectedAssignment) {
+
+                setError(
+                    "Please select a delivery first."
+                );
+
+                return;
+            }
+
+
+            const assignmentId =
+                getAssignmentId(
+                    selectedAssignment
+                );
+
+
+            if (!assignmentId) {
+
+                setError(
+                    "Delivery assignment ID is missing."
+                );
+
+                return;
+            }
+
+
+            try {
+
+                setGenerating(true);
+
+                setError("");
+
+                setQrImage("");
+
+                setQrToken("");
+
+                setVerificationResult(
+                    null
+                );
+
+
+                const response =
+                    await api.post(
+                        `/delivery-qr/${assignmentId}/generate`
+                    );
+
+
+                console.log(
+                    "QR generate response:",
+                    response.data
+                );
+
+
+                const {
+                    image,
+                    token,
+                } =
+                    extractQrData(
+                        response.data
+                    );
+
+
+                if (!image) {
+
+                    setError(
+                        "Backend did not return a QR image."
+                    );
+
+                    return;
+                }
+
+
+                if (!token) {
+
+                    setError(
+                        "Backend did not return the verification token."
+                    );
+
+                    return;
+                }
+
+
+                setQrImage(image);
+
+                setQrToken(token);
+
+            } catch (err) {
+
+                console.error(
+                    "Failed to generate QR:",
+                    err
+                );
+
+
+                setError(
+                    err.response?.data
+                        ?.message ||
+                    "Unable to generate QR code."
+                );
+
+            } finally {
+
+                setGenerating(false);
+            }
+        };
+
+
+    // =====================================================
+    // VERIFY QR
+    // =====================================================
+
+    const verifyQR =
+        async (
+            code = manualCode
+        ) => {
+
+            const cleanCode =
+                String(
+                    code || ""
+                ).trim();
+
+
+            if (!cleanCode) {
+
+                setError(
+                    "Please enter a QR verification token."
+                );
+
+                return;
+            }
+
+
+            if (!selectedAssignment) {
+
+                setError(
+                    "Please select a delivery first."
+                );
+
+                return;
+            }
+
+
+            const assignmentId =
+                getAssignmentId(
+                    selectedAssignment
+                );
+
+
+            if (!assignmentId) {
+
+                setError(
+                    "Delivery assignment ID is missing."
+                );
+
+                return;
+            }
+
+
+            try {
+
+                setVerifying(true);
+
+                setError("");
+
+                setVerificationResult(
+                    null
+                );
+
+
+                const response =
+                    await api.post(
+                        `/delivery-qr/${assignmentId}/verify`,
+                        {
+                            token:
+                                cleanCode,
                         }
-                        className={`w-full rounded-xl border p-4 text-left transition ${
-                          selected
-                            ? "border-black bg-gray-50"
-                            : "hover:bg-gray-50"
-                        }`}
-                      >
+                    );
 
-                        <div className="flex items-center gap-3">
 
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">
-                            <Package size={18} />
-                          </div>
+                console.log(
+                    "QR verification response:",
+                    response.data
+                );
 
-                          <div className="min-w-0 flex-1">
 
-                            <p className="truncate font-black">
-                              #
-                              {String(
-                                orderId ||
-                                  "N/A"
-                              ).slice(-10)}
-                            </p>
+                setVerificationResult({
 
-                            <p className="mt-1 text-xs text-gray-500">
-                              {formatStatus(
-                                status
-                              )}
-                            </p>
+                    success: true,
 
-                          </div>
+                    message:
+                        response.data
+                            ?.message ||
+                        "QR verification successful.",
+
+                    data:
+                        response.data
+                            ?.data ||
+                        response.data,
+                });
+
+
+                setManualCode("");
+
+
+                // Update selected assignment
+                setSelectedAssignment(
+                    (previous) => {
+
+                        if (!previous) {
+                            return previous;
+                        }
+
+
+                        return {
+                            ...previous,
+
+                            status:
+                                "DELIVERED",
+
+                            qrVerified:
+                                true,
+                        };
+                    }
+                );
+
+
+                // Update assignment list
+                setAssignments(
+                    (previous) =>
+                        previous.map(
+                            (
+                                assignment
+                            ) => {
+
+                                const currentId =
+                                    getAssignmentId(
+                                        assignment
+                                    );
+
+
+                                if (
+                                    String(
+                                        currentId
+                                    ) !==
+                                    String(
+                                        assignmentId
+                                    )
+                                ) {
+                                    return assignment;
+                                }
+
+
+                                return {
+                                    ...assignment,
+
+                                    status:
+                                        "DELIVERED",
+
+                                    qrVerified:
+                                        true,
+                                };
+                            }
+                        )
+                );
+
+            } catch (err) {
+
+                console.error(
+                    "QR verification failed:",
+                    err
+                );
+
+
+                setVerificationResult({
+
+                    success: false,
+
+                    message:
+                        err.response?.data
+                            ?.message ||
+                        "QR verification failed.",
+                });
+
+            } finally {
+
+                setVerifying(false);
+            }
+        };
+
+
+    // =====================================================
+    // SELECTED ORDER
+    // =====================================================
+
+    const selectedOrder =
+        selectedAssignment?.order ||
+        selectedAssignment?.orderId ||
+        {};
+
+
+    const selectedOrderId =
+        getOrderId(
+            selectedAssignment
+        );
+
+
+    const selectedStatus =
+        selectedAssignment?.status ||
+        selectedOrder?.status ||
+        "ASSIGNED";
+
+
+    // =====================================================
+    // LOADING
+    // =====================================================
+
+    if (loading) {
+
+        return (
+            <div className="min-h-screen bg-gray-50">
+
+                <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+
+                    <div className="animate-pulse space-y-6">
+
+                        <div className="h-10 w-72 rounded bg-gray-200" />
+
+                        <div className="grid gap-6 lg:grid-cols-3">
+
+                            <div className="h-[500px] rounded-2xl bg-gray-200" />
+
+                            <div className="h-[500px] rounded-2xl bg-gray-200 lg:col-span-2" />
 
                         </div>
 
-                      </button>
-                    );
-                  }
-                )}
-
-              </div>
-
-            </div>
-
-            {/* =========================
-                QR PANEL
-            ========================== */}
-
-            <div className="lg:col-span-2">
-
-              {!selectedAssignment ? (
-                <div className="flex min-h-[500px] items-center justify-center rounded-2xl border bg-white">
-
-                  <div className="text-center">
-
-                    <QrCode
-                      size={55}
-                      className="mx-auto text-gray-300"
-                    />
-
-                    <h2 className="mt-5 text-xl font-black">
-                      Select an Order
-                    </h2>
-
-                    <p className="mt-2 text-gray-500">
-                      Select a delivery from the
-                      list.
-                    </p>
-
-                  </div>
+                    </div>
 
                 </div>
-              ) : (
-                <div className="space-y-6">
 
-                  {/* ORDER INFO */}
+            </div>
+        );
+    }
 
-                  <div className="rounded-2xl border bg-white p-6">
 
-                    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    // =====================================================
+    // PAGE
+    // =====================================================
 
-                      <div>
+    return (
 
-                        <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                          Selected Order
+        <div className="min-h-screen bg-gray-50">
+
+            <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+
+                {/* HEADER */}
+
+                <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
+
+                    <div>
+
+                        <Link
+                            to="/delivery"
+                            className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-black"
+                        >
+
+                            <ArrowLeft
+                                size={17}
+                            />
+
+                            Back to Dashboard
+
+                        </Link>
+
+
+                        <p className="mt-6 text-sm font-semibold uppercase tracking-wider text-gray-500">
+                            Delivery Panel
                         </p>
 
-                        <h2 className="mt-1 text-2xl font-black">
-                          #
-                          {String(
-                            selectedOrderId ||
-                              "N/A"
-                          ).slice(-10)}
-                        </h2>
 
-                      </div>
+                        <h1 className="mt-1 text-3xl font-black sm:text-4xl">
+                            QR Verification
+                        </h1>
 
-                      <span className="w-fit rounded-full bg-gray-100 px-4 py-2 text-sm font-bold">
-                        {formatStatus(
-                          selectedStatus
-                        )}
-                      </span>
+
+                        <p className="mt-2 text-gray-500">
+                            Generate and verify delivery QR codes.
+                        </p>
 
                     </div>
 
-                  </div>
-
-                  {/* GENERATE */}
-
-                  <div className="rounded-2xl border bg-white p-6">
-
-                    <div className="flex items-center gap-3">
-
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
-                        <QrCode size={22} />
-                      </div>
-
-                      <div>
-                        <h2 className="text-xl font-black">
-                          Generate QR
-                        </h2>
-
-                        <p className="text-sm text-gray-500">
-                          Generate a verification
-                          code for this delivery.
-                        </p>
-                      </div>
-
-                    </div>
 
                     <button
-                      onClick={generateQR}
-                      className="mt-6 inline-flex items-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white hover:bg-gray-800"
+                        onClick={
+                            handleRefresh
+                        }
+                        disabled={
+                            refreshing
+                        }
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
                     >
-                      <QrCode size={18} />
-                      Generate QR Code
+
+                        <RefreshCw
+                            size={18}
+                            className={
+                                refreshing
+                                    ? "animate-spin"
+                                    : ""
+                            }
+                        />
+
+                        {refreshing
+                            ? "Refreshing..."
+                            : "Refresh"}
+
                     </button>
 
-                    {qrData && (
-                      <div className="mt-6 rounded-xl border bg-gray-50 p-5">
+                </div>
 
-                        <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
-                          QR / Verification
-                          Data
-                        </p>
 
-                        <div className="mt-3 break-all rounded-lg bg-white p-4 font-mono text-sm">
-                          {qrData}
-                        </div>
+                {/* ERROR */}
 
-                      </div>
-                    )}
+                {error && (
 
-                  </div>
-
-                  {/* VERIFY */}
-
-                  <div className="rounded-2xl border bg-white p-6">
-
-                    <div className="flex items-center gap-3">
-
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
-                        <ScanLine size={22} />
-                      </div>
-
-                      <div>
-                        <h2 className="text-xl font-black">
-                          Verify QR
-                        </h2>
-
-                        <p className="text-sm text-gray-500">
-                          Enter the QR verification
-                          code.
-                        </p>
-                      </div>
-
-                    </div>
-
-                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-
-                      <div className="relative flex-1">
-
-                        <Search
-                          size={18}
-                          className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                        />
-
-                        <input
-                          type="text"
-                          value={manualCode}
-                          onChange={(event) =>
-                            setManualCode(
-                              event.target.value
-                            )
-                          }
-                          placeholder="Enter QR code"
-                          className="w-full rounded-xl border px-11 py-3 outline-none focus:border-black"
-                        />
-
-                      </div>
-
-                      <button
-                        onClick={() =>
-                          verifyQR()
-                        }
-                        disabled={verifying}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
-                      >
-                        {verifying
-                          ? "Verifying..."
-                          : "Verify"}
-                      </button>
-
-                    </div>
-
-                    {/* RESULT */}
-
-                    {verificationResult && (
-                      <div
-                        className={`mt-6 rounded-xl border p-5 ${
-                          verificationResult.success
-                            ? "border-green-200 bg-green-50"
-                            : "border-red-200 bg-red-50"
-                        }`}
-                      >
+                    <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-5">
 
                         <div className="flex items-start gap-3">
 
-                          {verificationResult.success ? (
-                            <CheckCircle
-                              size={23}
-                              className="text-green-600"
-                            />
-                          ) : (
                             <XCircle
-                              size={23}
-                              className="text-red-600"
+                                size={22}
+                                className="mt-0.5 shrink-0 text-red-600"
                             />
-                          )}
 
-                          <div>
+                            <div>
 
-                            <p
-                              className={`font-bold ${
-                                verificationResult.success
-                                  ? "text-green-700"
-                                  : "text-red-700"
-                              }`}
-                            >
-                              {verificationResult.success
-                                ? "Verification Successful"
-                                : "Verification Failed"}
-                            </p>
+                                <p className="font-bold text-red-700">
+                                    Error
+                                </p>
 
-                            <p
-                              className={`mt-1 text-sm ${
-                                verificationResult.success
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {
-                                verificationResult.message
-                              }
-                            </p>
+                                <p className="mt-1 break-words text-sm text-red-600">
+                                    {error}
+                                </p>
 
-                          </div>
+                            </div>
 
                         </div>
 
-                      </div>
-                    )}
+                    </div>
+                )}
 
-                  </div>
 
-                  {/* INSTRUCTIONS */}
+                {/* NO DELIVERIES */}
 
-                  <div className="rounded-2xl border bg-white p-6">
+                {assignments.length === 0 ? (
 
-                    <h2 className="text-lg font-black">
-                      Delivery Verification
-                    </h2>
+                    <div className="mt-8 rounded-2xl border bg-white p-12 text-center">
 
-                    <div className="mt-5 space-y-4">
+                        <QrCode
+                            size={55}
+                            className="mx-auto text-gray-300"
+                        />
 
-                      <div className="flex gap-3">
+                        <h2 className="mt-5 text-2xl font-black">
+                            No Deliveries
+                        </h2>
 
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black">
-                          1
-                        </div>
-
-                        <p className="text-sm text-gray-600">
-                          Select the delivery order
-                          you want to verify.
+                        <p className="mt-2 text-gray-500">
+                            You don't have any delivery assignments to verify.
                         </p>
 
-                      </div>
+                        <Link
+                            to="/delivery"
+                            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white"
+                        >
 
-                      <div className="flex gap-3">
+                            <ArrowLeft
+                                size={17}
+                            />
 
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black">
-                          2
-                        </div>
+                            Back to Dashboard
 
-                        <p className="text-sm text-gray-600">
-                          Generate or obtain the
-                          customer's QR verification
-                          code.
-                        </p>
-
-                      </div>
-
-                      <div className="flex gap-3">
-
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black">
-                          3
-                        </div>
-
-                        <p className="text-sm text-gray-600">
-                          Enter the code and verify
-                          the delivery.
-                        </p>
-
-                      </div>
+                        </Link>
 
                     </div>
 
-                  </div>
+                ) : (
 
-                </div>
-              )}
+                    <div className="mt-8 grid gap-6 lg:grid-cols-3">
+
+                        {/* DELIVERY LIST */}
+
+                        <div className="rounded-2xl border bg-white p-5">
+
+                            <div className="flex items-center gap-3">
+
+                                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
+
+                                    <Package
+                                        size={21}
+                                    />
+
+                                </div>
+
+                                <div>
+
+                                    <h2 className="font-black">
+                                        My Deliveries
+                                    </h2>
+
+                                    <p className="text-sm text-gray-500">
+                                        Select an order
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+                            <div className="mt-5 space-y-3">
+
+                                {assignments.map(
+                                    (
+                                        assignment,
+                                        index
+                                    ) => {
+
+                                        const order =
+                                            assignment.order ||
+                                            assignment.orderId ||
+                                            {};
+
+
+                                        const id =
+                                            assignment._id ||
+                                            assignment.id ||
+                                            index;
+
+
+                                        const orderId =
+                                            order._id ||
+                                            order.id ||
+                                            assignment.orderId;
+
+
+                                        const status =
+                                            assignment.status ||
+                                            order.status ||
+                                            "ASSIGNED";
+
+
+                                        const selected =
+                                            selectedAssignment ===
+                                            assignment;
+
+
+                                        return (
+
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                onClick={() =>
+                                                    selectAssignment(
+                                                        assignment
+                                                    )
+                                                }
+                                                className={`w-full rounded-xl border p-4 text-left transition ${
+                                                    selected
+                                                        ? "border-black bg-gray-50"
+                                                        : "hover:bg-gray-50"
+                                                }`}
+                                            >
+
+                                                <div className="flex items-center gap-3">
+
+                                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">
+
+                                                        <Package
+                                                            size={18}
+                                                        />
+
+                                                    </div>
+
+
+                                                    <div className="min-w-0 flex-1">
+
+                                                        <p className="truncate font-black">
+
+                                                            #
+
+                                                            {String(
+                                                                orderId ||
+                                                                "N/A"
+                                                            ).slice(-10)}
+
+                                                        </p>
+
+
+                                                        <p className="mt-1 text-xs text-gray-500">
+
+                                                            {formatStatus(
+                                                                status
+                                                            )}
+
+                                                        </p>
+
+                                                    </div>
+
+                                                </div>
+
+                                            </button>
+                                        );
+                                    }
+                                )}
+
+                            </div>
+
+                        </div>
+
+
+                        {/* QR PANEL */}
+
+                        <div className="lg:col-span-2">
+
+                            {!selectedAssignment ? (
+
+                                <div className="flex min-h-[500px] items-center justify-center rounded-2xl border bg-white">
+
+                                    <div className="text-center">
+
+                                        <QrCode
+                                            size={55}
+                                            className="mx-auto text-gray-300"
+                                        />
+
+                                        <h2 className="mt-5 text-xl font-black">
+                                            Select an Order
+                                        </h2>
+
+                                        <p className="mt-2 text-gray-500">
+                                            Select a delivery from the list.
+                                        </p>
+
+                                    </div>
+
+                                </div>
+
+                            ) : (
+
+                                <div className="space-y-6">
+
+                                    {/* ORDER INFO */}
+
+                                    <div className="rounded-2xl border bg-white p-6">
+
+                                        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+
+                                            <div>
+
+                                                <p className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                                                    Selected Order
+                                                </p>
+
+                                                <h2 className="mt-1 text-2xl font-black">
+
+                                                    #
+
+                                                    {String(
+                                                        selectedOrderId ||
+                                                        "N/A"
+                                                    ).slice(-10)}
+
+                                                </h2>
+
+                                            </div>
+
+
+                                            <span className="w-fit rounded-full bg-gray-100 px-4 py-2 text-sm font-bold">
+
+                                                {formatStatus(
+                                                    selectedStatus
+                                                )}
+
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    {/* GENERATE QR */}
+
+                                    <div className="rounded-2xl border bg-white p-6">
+
+                                        <div className="flex items-center gap-3">
+
+                                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
+
+                                                <QrCode
+                                                    size={22}
+                                                />
+
+                                            </div>
+
+
+                                            <div>
+
+                                                <h2 className="text-xl font-black">
+                                                    Generate QR
+                                                </h2>
+
+                                                <p className="text-sm text-gray-500">
+                                                    Generate a verification QR code for this delivery.
+                                                </p>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <button
+                                            onClick={
+                                                generateQR
+                                            }
+                                            disabled={
+                                                generating ||
+                                                selectedStatus ===
+                                                    "DELIVERED"
+                                            }
+                                            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                                        >
+
+                                            <QrCode
+                                                size={18}
+                                            />
+
+                                            {generating
+                                                ? "Generating..."
+                                                : selectedStatus ===
+                                                    "DELIVERED"
+                                                    ? "Delivery Completed"
+                                                    : "Generate QR Code"}
+
+                                        </button>
+
+
+                                        {/* QR IMAGE */}
+
+                                        {qrImage && (
+
+                                            <div className="mt-6 rounded-2xl border bg-gray-50 p-6">
+
+                                                <p className="text-center text-xs font-bold uppercase tracking-wide text-gray-400">
+                                                    Delivery QR Code
+                                                </p>
+
+
+                                                <div className="mt-4 flex justify-center">
+
+                                                    <div className="rounded-2xl border bg-white p-4 shadow-sm">
+
+                                                        <img
+                                                            src={
+                                                                qrImage
+                                                            }
+                                                            alt="Delivery QR Code"
+                                                            className="h-64 w-64 object-contain"
+                                                        />
+
+                                                    </div>
+
+                                                </div>
+
+
+                                                <p className="mt-4 text-center text-xs text-gray-500">
+                                                    Scan this QR code to read the delivery verification data.
+                                                </p>
+
+                                            </div>
+                                        )}
+
+
+                                        {/* TOKEN */}
+
+                                        {qrToken && (
+
+                                            <div className="mt-6 rounded-xl border bg-gray-50 p-5">
+
+                                                <div className="flex items-center justify-between gap-3">
+
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-400">
+                                                        Verification Token
+                                                    </p>
+
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setManualCode(
+                                                                qrToken
+                                                            )
+                                                        }
+                                                        className="rounded-lg bg-black px-3 py-2 text-xs font-bold text-white hover:bg-gray-800"
+                                                    >
+                                                        Use Token
+                                                    </button>
+
+                                                </div>
+
+
+                                                <div className="mt-3 break-all rounded-lg bg-white p-4 font-mono text-sm">
+                                                    {qrToken}
+                                                </div>
+
+                                            </div>
+                                        )}
+
+                                    </div>
+
+
+                                    {/* VERIFY */}
+
+                                    <div className="rounded-2xl border bg-white p-6">
+
+                                        <div className="flex items-center gap-3">
+
+                                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gray-100">
+
+                                                <ScanLine
+                                                    size={22}
+                                                />
+
+                                            </div>
+
+
+                                            <div>
+
+                                                <h2 className="text-xl font-black">
+                                                    Verify QR
+                                                </h2>
+
+                                                <p className="text-sm text-gray-500">
+                                                    Enter the QR verification token.
+                                                </p>
+
+                                            </div>
+
+                                        </div>
+
+
+                                        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+
+                                            <div className="relative flex-1">
+
+                                                <Search
+                                                    size={18}
+                                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                                                />
+
+
+                                                <input
+                                                    type="text"
+                                                    value={
+                                                        manualCode
+                                                    }
+                                                    onChange={(
+                                                        event
+                                                    ) =>
+                                                        setManualCode(
+                                                            event
+                                                                .target
+                                                                .value
+                                                        )
+                                                    }
+                                                    onKeyDown={(
+                                                        event
+                                                    ) => {
+
+                                                        if (
+                                                            event.key ===
+                                                            "Enter"
+                                                        ) {
+                                                            verifyQR();
+                                                        }
+
+                                                    }}
+                                                    placeholder="Enter QR verification token"
+                                                    className="w-full rounded-xl border px-11 py-3 outline-none focus:border-black"
+                                                />
+
+                                            </div>
+
+
+                                            <button
+                                                onClick={() =>
+                                                    verifyQR()
+                                                }
+                                                disabled={
+                                                    verifying ||
+                                                    selectedStatus ===
+                                                        "DELIVERED"
+                                                }
+                                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-black px-5 py-3 font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
+                                            >
+
+                                                {verifying
+                                                    ? "Verifying..."
+                                                    : selectedStatus ===
+                                                        "DELIVERED"
+                                                        ? "Already Delivered"
+                                                        : "Verify"}
+
+                                            </button>
+
+                                        </div>
+
+
+                                        {/* RESULT */}
+
+                                        {verificationResult && (
+
+                                            <div
+                                                className={`mt-6 rounded-xl border p-5 ${
+                                                    verificationResult.success
+                                                        ? "border-green-200 bg-green-50"
+                                                        : "border-red-200 bg-red-50"
+                                                }`}
+                                            >
+
+                                                <div className="flex items-start gap-3">
+
+                                                    {verificationResult.success ? (
+
+                                                        <CheckCircle
+                                                            size={23}
+                                                            className="shrink-0 text-green-600"
+                                                        />
+
+                                                    ) : (
+
+                                                        <XCircle
+                                                            size={23}
+                                                            className="shrink-0 text-red-600"
+                                                        />
+
+                                                    )}
+
+
+                                                    <div>
+
+                                                        <p
+                                                            className={`font-bold ${
+                                                                verificationResult.success
+                                                                    ? "text-green-700"
+                                                                    : "text-red-700"
+                                                            }`}
+                                                        >
+
+                                                            {verificationResult.success
+                                                                ? "Verification Successful"
+                                                                : "Verification Failed"}
+
+                                                        </p>
+
+
+                                                        <p
+                                                            className={`mt-1 text-sm ${
+                                                                verificationResult.success
+                                                                    ? "text-green-600"
+                                                                    : "text-red-600"
+                                                            }`}
+                                                        >
+
+                                                            {
+                                                                verificationResult.message
+                                                            }
+
+                                                        </p>
+
+
+                                                        {verificationResult.success && (
+
+                                                            <p className="mt-2 text-xs font-medium text-green-700">
+
+                                                                Delivery has been completed successfully.
+
+                                                            </p>
+
+                                                        )}
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+                                        )}
+
+                                    </div>
+
+
+                                    {/* INSTRUCTIONS */}
+
+                                    <div className="rounded-2xl border bg-white p-6">
+
+                                        <h2 className="text-lg font-black">
+                                            Delivery Verification
+                                        </h2>
+
+
+                                        <div className="mt-5 space-y-4">
+
+                                            <div className="flex gap-3">
+
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black">
+                                                    1
+                                                </div>
+
+                                                <p className="text-sm text-gray-600">
+                                                    Select the delivery order you want to complete.
+                                                </p>
+
+                                            </div>
+
+
+                                            <div className="flex gap-3">
+
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black">
+                                                    2
+                                                </div>
+
+                                                <p className="text-sm text-gray-600">
+                                                    Generate the delivery QR code.
+                                                </p>
+
+                                            </div>
+
+
+                                            <div className="flex gap-3">
+
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black">
+                                                    3
+                                                </div>
+
+                                                <p className="text-sm text-gray-600">
+                                                    Use the verification token from the generated QR.
+                                                </p>
+
+                                            </div>
+
+
+                                            <div className="flex gap-3">
+
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-black">
+                                                    4
+                                                </div>
+
+                                                <p className="text-sm text-gray-600">
+                                                    Verify the token. Successful verification completes the delivery.
+                                                </p>
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            )}
+
+                        </div>
+
+                    </div>
+                )}
 
             </div>
 
-          </div>
-        )}
-
-      </div>
-    </div>
-  );
+        </div>
+    );
 };
+
 
 export default DeliveryQR;

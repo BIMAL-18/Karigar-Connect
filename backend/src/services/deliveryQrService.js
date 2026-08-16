@@ -1,35 +1,40 @@
 const crypto = require("crypto");
 const QRCode = require("qrcode");
 
-const DeliveryAssignment =
-  require("../models/DeliveryAssignment");
+const DeliveryAssignment = require("../models/DeliveryAssignment");
+const DeliveryPerson = require("../models/DeliveryPerson");
 
-const DeliveryPerson =
-  require("../models/DeliveryPerson");
+// ======================================================
+// HELPER
+// ======================================================
 
+const getDeliveryPerson = async (userId) => {
+  const deliveryPerson = await DeliveryPerson.findOne({
+    user: userId,
+  });
 
-// Generate QR code for delivery
+  if (!deliveryPerson) {
+    throw new Error("Delivery person profile not found.");
+  }
+
+  return deliveryPerson;
+};
+
+// ======================================================
+// GENERATE DELIVERY QR
+// ======================================================
+
 const generateDeliveryQr = async (
   userId,
   assignmentId
 ) => {
   const deliveryPerson =
-    await DeliveryPerson.findOne({
-      user: userId,
-    });
-
-  if (!deliveryPerson) {
-    throw new Error(
-      "Delivery person profile not found."
-    );
-  }
-
+    await getDeliveryPerson(userId);
 
   const assignment =
     await DeliveryAssignment.findOne({
       _id: assignmentId,
-      deliveryPerson:
-        deliveryPerson._id,
+      deliveryPerson: deliveryPerson._id,
     });
 
   if (!assignment) {
@@ -38,39 +43,83 @@ const generateDeliveryQr = async (
     );
   }
 
+  console.log(
+    "Generating QR for assignment:",
+    assignment._id.toString()
+  );
+
+  console.log(
+    "Current assignment status:",
+    assignment.status
+  );
+
+  // --------------------------------------------------
+  // QR SHOULD NOT BE GENERATED FOR FINAL/INVALID STATES
+  // --------------------------------------------------
+
+  const blockedStatuses = [
+    "DELIVERED",
+    "CANCELLED",
+    "REJECTED",
+  ];
 
   if (
-    [
-      "DELIVERED",
-      "CANCELLED",
-      "REJECTED",
-    ].includes(
+    blockedStatuses.includes(
       assignment.status
     )
   ) {
     throw new Error(
-      "QR code cannot be generated for this delivery."
+      `QR code cannot be generated for this delivery. Current status: ${assignment.status}`
     );
   }
 
+  // --------------------------------------------------
+  // ALLOW PICKED_UP AND OUT_FOR_DELIVERY
+  // --------------------------------------------------
 
-  // Generate secure random token
+  const allowedStatuses = [
+    "ASSIGNED",
+    "ACCEPTED",
+    "PICKED_UP",
+    "OUT_FOR_DELIVERY",
+  ];
+
+  if (
+    !allowedStatuses.includes(
+      assignment.status
+    )
+  ) {
+    throw new Error(
+      `QR code cannot be generated for delivery with status: ${assignment.status}`
+    );
+  }
+
+  // --------------------------------------------------
+  // GENERATE SECURE TOKEN
+  // --------------------------------------------------
+
   const token =
     crypto
       .randomBytes(32)
       .toString("hex");
 
+  // --------------------------------------------------
+  // QR PAYLOAD
+  // --------------------------------------------------
 
-  // QR data
   const qrData = JSON.stringify({
     type: "DELIVERY_VERIFICATION",
+
     assignmentId:
       assignment._id.toString(),
+
     token,
   });
 
+  // --------------------------------------------------
+  // GENERATE QR IMAGE
+  // --------------------------------------------------
 
-  // Generate QR image as Data URL
   const qrCode =
     await QRCode.toDataURL(
       qrData,
@@ -81,6 +130,9 @@ const generateDeliveryQr = async (
       }
     );
 
+  // --------------------------------------------------
+  // SAVE
+  // --------------------------------------------------
 
   assignment.deliveryQrToken =
     token;
@@ -94,9 +146,7 @@ const generateDeliveryQr = async (
   assignment.qrVerifiedAt =
     null;
 
-
   await assignment.save();
-
 
   return {
     assignmentId:
@@ -104,29 +154,27 @@ const generateDeliveryQr = async (
 
     qrCode,
 
+    token,
+
+    status:
+      assignment.status,
+
     message:
       "Delivery QR code generated successfully.",
   };
 };
 
+// ======================================================
+// VERIFY DELIVERY QR
+// ======================================================
 
-// Verify delivery QR
 const verifyDeliveryQr = async (
   userId,
   assignmentId,
   token
 ) => {
   const deliveryPerson =
-    await DeliveryPerson.findOne({
-      user: userId,
-    });
-
-  if (!deliveryPerson) {
-    throw new Error(
-      "Delivery person profile not found."
-    );
-  }
-
+    await getDeliveryPerson(userId);
 
   const assignment =
     await DeliveryAssignment.findOne({
@@ -135,13 +183,25 @@ const verifyDeliveryQr = async (
         deliveryPerson._id,
     }).populate("order");
 
-
   if (!assignment) {
     throw new Error(
       "Delivery assignment not found."
     );
   }
 
+  console.log(
+    "Verifying assignment:",
+    assignment._id.toString()
+  );
+
+  console.log(
+    "Current assignment status:",
+    assignment.status
+  );
+
+  // --------------------------------------------------
+  // ALREADY DELIVERED
+  // --------------------------------------------------
 
   if (
     assignment.status ===
@@ -152,16 +212,39 @@ const verifyDeliveryQr = async (
     );
   }
 
+  // --------------------------------------------------
+  // ALLOW PICKED_UP
+  //
+  // If status is PICKED_UP, automatically move it
+  // to OUT_FOR_DELIVERY before verification.
+  // --------------------------------------------------
+
+  if (
+    assignment.status ===
+    "PICKED_UP"
+  ) {
+    assignment.status =
+      "OUT_FOR_DELIVERY";
+
+    await assignment.save();
+  }
+
+  // --------------------------------------------------
+  // NOW STATUS MUST BE OUT_FOR_DELIVERY
+  // --------------------------------------------------
 
   if (
     assignment.status !==
     "OUT_FOR_DELIVERY"
   ) {
     throw new Error(
-      "Order must be out for delivery before QR verification."
+      `Order must be OUT_FOR_DELIVERY before QR verification. Current status: ${assignment.status}`
     );
   }
 
+  // --------------------------------------------------
+  // CHECK QR
+  // --------------------------------------------------
 
   if (
     !assignment.deliveryQrToken
@@ -171,16 +254,27 @@ const verifyDeliveryQr = async (
     );
   }
 
+  if (!token) {
+    throw new Error(
+      "Delivery QR verification token is required."
+    );
+  }
 
-  // Secure token comparison
+  // --------------------------------------------------
+  // CLEAN TOKEN
+  // --------------------------------------------------
+
   const receivedToken =
-    String(token || "");
+    String(token).trim();
 
   const storedToken =
     String(
       assignment.deliveryQrToken
-    );
+    ).trim();
 
+  // --------------------------------------------------
+  // CONSTANT-TIME COMPARISON
+  // --------------------------------------------------
 
   const receivedBuffer =
     Buffer.from(
@@ -192,7 +286,6 @@ const verifyDeliveryQr = async (
       storedToken
     );
 
-
   if (
     receivedBuffer.length !==
     storedBuffer.length
@@ -202,13 +295,11 @@ const verifyDeliveryQr = async (
     );
   }
 
-
   const isValid =
     crypto.timingSafeEqual(
       receivedBuffer,
       storedBuffer
     );
-
 
   if (!isValid) {
     throw new Error(
@@ -216,32 +307,40 @@ const verifyDeliveryQr = async (
     );
   }
 
+  // --------------------------------------------------
+  // SUCCESS
+  // --------------------------------------------------
 
-  // Verify QR
+  const now =
+    new Date();
+
   assignment.qrVerified =
     true;
 
   assignment.qrVerifiedAt =
-    new Date();
+    now;
 
   assignment.status =
     "DELIVERED";
 
   assignment.deliveredAt =
-    new Date();
-
+    now;
 
   await assignment.save();
 
+  // --------------------------------------------------
+  // DELIVERY PERSON AVAILABLE
+  // --------------------------------------------------
 
-  // Return delivery person to available state
   deliveryPerson.isAvailable =
     true;
 
   await deliveryPerson.save();
 
+  // --------------------------------------------------
+  // UPDATE ORDER
+  // --------------------------------------------------
 
-  // Update order
   if (assignment.order) {
     assignment.order.orderStatus =
       "DELIVERED";
@@ -249,10 +348,7 @@ const verifyDeliveryQr = async (
     await assignment.order.save();
   }
 
-
   return {
-    success: true,
-
     assignmentId:
       assignment._id,
 
@@ -267,26 +363,25 @@ const verifyDeliveryQr = async (
 
     qrVerifiedAt:
       assignment.qrVerifiedAt,
+
+    deliveredAt:
+      assignment.deliveredAt,
+
+    message:
+      "QR verified. Delivery completed successfully.",
   };
 };
 
+// ======================================================
+// GET DELIVERY QR
+// ======================================================
 
-// Get QR code
 const getDeliveryQr = async (
   userId,
   assignmentId
 ) => {
   const deliveryPerson =
-    await DeliveryPerson.findOne({
-      user: userId,
-    });
-
-  if (!deliveryPerson) {
-    throw new Error(
-      "Delivery person profile not found."
-    );
-  }
-
+    await getDeliveryPerson(userId);
 
   const assignment =
     await DeliveryAssignment.findOne({
@@ -295,13 +390,11 @@ const getDeliveryQr = async (
         deliveryPerson._id,
     });
 
-
   if (!assignment) {
     throw new Error(
       "Delivery assignment not found."
     );
   }
-
 
   if (
     !assignment.deliveryQrCode
@@ -311,7 +404,6 @@ const getDeliveryQr = async (
     );
   }
 
-
   return {
     assignmentId:
       assignment._id,
@@ -319,14 +411,19 @@ const getDeliveryQr = async (
     qrCode:
       assignment.deliveryQrCode,
 
+    token:
+      assignment.deliveryQrToken,
+
     qrVerified:
       assignment.qrVerified,
+
+    qrVerifiedAt:
+      assignment.qrVerifiedAt,
 
     status:
       assignment.status,
   };
 };
-
 
 module.exports = {
   generateDeliveryQr,

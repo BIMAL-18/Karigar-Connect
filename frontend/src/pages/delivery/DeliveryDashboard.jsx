@@ -36,7 +36,7 @@ const DeliveryDashboard = () => {
       setError("");
 
       const response = await api.get(
-        "/delivery-assignments/my"
+        "/delivery-assignments/my-deliveries"
       );
 
       const data =
@@ -103,7 +103,7 @@ const DeliveryDashboard = () => {
     try {
       setUpdatingId(assignmentId);
 
-      await api.patch(
+      await api.put(
         `/delivery-assignments/${assignmentId}/status`,
         {
           status,

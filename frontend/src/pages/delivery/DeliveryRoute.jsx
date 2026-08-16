@@ -48,7 +48,7 @@ const DeliveryRoute = () => {
       setError("");
 
       const response = await api.get(
-        "/delivery-assignments/my"
+        "/delivery-assignments/my-deliveries"
       );
 
       const data =
