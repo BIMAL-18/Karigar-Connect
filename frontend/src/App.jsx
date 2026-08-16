@@ -47,6 +47,23 @@ import DeliveryLiveLocation
 
 import TrackDelivery
     from "./pages/orders/TrackDelivery";
+import ProducerDashboard from "./pages/producer/ProducerDashboard";
+import ProducerProfile from "./pages/producer/ProducerProfile";
+import ProducerProducts from "./pages/producer/ProducerProducts";
+import CreateProduct from "./pages/producer/CreateProduct";
+import EditProduct from "./pages/producer/EditProduct";
+import ProducerOrders from "./pages/producer/ProducerOrders";
+import ProducerOrderDetails from "./pages/producer/ProducerOrderDetails";
+
+// Admin Pages
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminProducers from "./pages/admin/AdminProducers";
+import AdminProducts from "./pages/admin/AdminProducts";
+import AdminOrders from "./pages/admin/AdminOrders";
+import AdminCategories from "./pages/admin/AdminCategories";
+// import AddProduct from "./pages/producer/AddProduct";
+
 // ==========================================
 // Customer Dashboard
 // ==========================================
@@ -60,44 +77,6 @@ const CustomerDashboard = () => {
     </div>
   );
 };
-
-// ==========================================
-// Producer Dashboard
-// ==========================================
-
-const ProducerDashboard = () => {
-  return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold">
-        Producer Dashboard
-      </h1>
-
-      <p className="mt-2 text-gray-500">
-        Manage your products and orders.
-      </p>
-    </div>
-  );
-};
-
-// ==========================================
-// Admin Dashboard
-// ==========================================
-
-const AdminDashboard = () => {
-  return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold">
-        Admin Dashboard
-      </h1>
-
-      <p className="mt-2 text-gray-500">
-        Manage users, producers, products,
-        orders and deliveries.
-      </p>
-    </div>
-  );
-};
-
 // ==========================================
 // Unauthorized
 // ==========================================
@@ -239,7 +218,56 @@ function App() {
                   <ProducerDashboard />
                 }
               />
+              <Route
+    path="/producer/profile"
+    element={
+        <ProtectedRoute allowedRoles={["PRODUCER"]}>
+            <ProducerProfile />
+        </ProtectedRoute>
+    }
+/>
+<Route
+    path="/producer/products"
+    element={
+        <ProtectedRoute allowedRoles={["PRODUCER"]}>
+            <ProducerProducts />
+        </ProtectedRoute>
+    }
+/>
+<Route
+  path="/producer/products/create"
+  element={<CreateProduct />}
+/>
+<Route
+    path="/producer/products/:id/edit"
+    element={
+        <ProtectedRoute allowedRoles={["PRODUCER"]}>
+            <EditProduct />
+        </ProtectedRoute>
+    }
+/>
 
+
+{/* <Route
+  path="/producer/add-product"
+  element={<AddProduct />}
+/> */}
+<Route
+    path="/producer/orders"
+    element={
+        <ProtectedRoute allowedRoles={["PRODUCER"]}>
+            <ProducerOrders />
+        </ProtectedRoute>
+    }
+/>
+<Route
+    path="/producer/orders/:id"
+    element={
+        <ProtectedRoute allowedRoles={["PRODUCER"]}>
+            <ProducerOrderDetails />
+        </ProtectedRoute>
+    }
+/>
             </Route>
 
             {/* =================================
@@ -296,23 +324,32 @@ function App() {
                 ADMIN
             ================================= */}
 
-            <Route
-              element={
-                <ProtectedRoute
-                  roles={["ADMIN"]}
-                />
-              }
-            >
+            <Route path="/admin" element={<AdminDashboard />} />
 
-              <Route
-                path="/admin"
-                element={
-                  <AdminDashboard />
-                }
-              />
+<Route
+  path="/admin/users"
+  element={<AdminUsers />}
+/>
 
-            </Route>
+<Route
+  path="/admin/producers"
+  element={<AdminProducers />}
+/>
 
+<Route
+  path="/admin/products"
+  element={<AdminProducts />}
+/>
+
+<Route
+  path="/admin/orders"
+  element={<AdminOrders />}
+/>
+
+<Route
+  path="/admin/categories"
+  element={<AdminCategories />}
+/>
           </Route>
 
           {/* =================================
